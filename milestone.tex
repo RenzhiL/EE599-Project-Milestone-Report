@@ -185,8 +185,8 @@ Random & 27.4 [20.6, 34.9] & 72\% & 0.31 & 22.6 [19.9, 25.4] & 66\% & 0.25 & 19.
   GP level-set and $^{-0.93}$ for random, and greedy needs 0.3--0.5$\times$ random's at every number of free knobs. On m1's small sets
   IoU mostly measures finding; ground truth costs (levels per knob)$^{\text{knobs}}$.
   \item Mapping check (\texttt{diffpair\_rload}, 172 of 16,807 grid designs feasible, 600
-  simulations, 5 seeds; sweeps from an older simulator version): IoU 0.99 for greedy with no warm start, 0.82--0.98 for
-  the six DQN models, 0.31 for random pick, against 0.17 for GP level-set cold and 0.88 warm-started from GF\,180\,nm
+  simulations, 5 seeds; sweeps from an older simulator version): IoU 0.99 for greedy with no warm start, 0.99 for the three
+  PPO models (behind greedy early: 0.56--0.60 vs 0.67 at 200), 0.82--0.98 for the six DQN models, 0.31 for random pick, against 0.17 for GP level-set cold and 0.88 warm-started from GF\,180\,nm
   (ahead early: 0.83 vs 0.69 at 200).
   \item Infeasible specs: the map's highest chance separates achievable from infeasible test tasks (AUROC 0.83--0.96
   DQN, 0.77--0.78 PPO, 0.73 greedy), but random pick reaches 0.91: no skill yet.
