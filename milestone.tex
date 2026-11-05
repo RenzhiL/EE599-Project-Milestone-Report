@@ -56,44 +56,51 @@
 
 % ==================================================================
 \section{Introduction}\label{sec:related}
-Analog circuit design turns a specifications combination (gain, bandwidth, phase margin, power, etc.) into a chip to be fabricated. The
-designer picks a \emph{topology}, the arrangement of components (transistors, resistors, capacitors, etc.), then \emph{sizes} the
-device dimensions, bias, and supply. Each design needs to be verified by different Spice simulations. For a demanding
-specification combination, the margin for sizing is very small. Automation today sizes a given topology toward
-given targets or learns the pass/fail region of one circuit from scratch; which topology can meet a specification at
-all and when to stop trying one is still left to the designer's experience.
+Analog circuit design turns a combination of specifications (gain, bandwidth, power, \dots) into a
+circuit to be fabricated. The designer picks a \emph{topology}, the arrangement of components (transistors, resistors,
+capacitors), then \emph{sizes} it: device dimensions, bias and supply. Every candidate must be checked by circuit
+(SPICE) simulation, and for a demanding combination of specifications very few sizings pass. Automation sizes a
+given topology toward given targets, or learns the pass/fail region of one circuit from scratch; which topology can
+meet a specification at all, and when to give up on one, is left to experience.
 
-We propose a design loop that splits this work (Section~\ref{sec:loop}). An LLM acts as the designer, proposing 
-topologies and deciding whether to accept, retry, or relax the spec until the target is feasible. The topology selected by the LLM is then fed to the RL explorer, which is trained once across many circuits, choosing which sizings to simulate, first to find
-a design that meets the specification and ultimately to map where it can be met, in as few simulations as possible. Since many Process Design Kit (PDK) today remain confidential information, a circuit compiler is designed as a carrier between LLM and RL model such that none of them will be trained on process specific information. A topology is accepted only if it is based on a simulated design that meets every target.
+We propose a design loop that splits this work (Section~\ref{sec:loop}). An LLM acts as the designer: it proposes
+topologies and decides whether to accept one, retry, or relax the specification when nothing can meet it. An RL
+explorer, trained once across many circuits, then chooses which sizings of a proposed topology to simulate, first to
+find a design that meets the specification and ultimately to map where it can be met, in as few simulations as
+possible. Because the process design kits (PDKs) that describe a manufacturing process are often confidential, a
+circuit compiler sits between the two, so neither model is trained on process-specific data. A topology is accepted
+only on a simulated design that meets every target.
 
 Milestone 1 finalizes this workflow and builds one RL environment and evaluation harness in which every explorer is
-trained and scored the same way, on 20 amplifier circuits whose feasible sets are known exactly through parameter sweeping with limited grid resolution, with a first
-comparison to decide which models to pursue (Section~\ref{sec:goals}). In it, a learned explorer, PPO, needs fewer
-simulations than a fixed rule to find a design (mapping is the final report's question), and Claude, as the designer, gives up wrongly less often than a rule
-baseline (Section~3).
+trained and scored the same way, on 20 amplifier circuits whose feasible sets are known exactly from sweeps over a
+grid of sizings, with a first comparison to decide which models to pursue (Section~\ref{sec:goals}). In it a learned
+explorer, PPO, needs fewer simulations than a fixed rule to find a design (mapping comes next),
+and Claude as the designer gives up wrongly less often than a rule baseline.
 
-\textbf{RL for circuit sizing.} AutoCkt~\cite{autockt} trains PPO on sampled target specifications and reaches unseen
-targets; PPAAS~\cite{ppaas} conditions on the goal, generalizes zero-shot to unseen goals and checks 45 corners, with
-the same tools as ours (ngspice, SKY130, GF180); GCN-RL~\cite{gcnrl} encodes the netlist as a graph and transfers a
-sizing policy across technology nodes and two topologies. \emph{Similar:} RL in a simulator loop, open processes,
-transfer as the goal. \emph{Different:} their policies propose sizes and are scored per target. Ours is a learned
-acquisition rule over offered designs (as in MetaBO~\cite{metabo}), shared by every circuit and tested on held-out
-topologies; it is scored on finding a meeting design and on the feasible set it maps.
+\textbf{RL for circuit sizing.} Prior RL work treats sizing as control: the policy outputs sizes and is rewarded
+for meeting a target. AutoCkt~\cite{autockt} trains PPO on many sampled targets and reaches targets it never
+saw; PPAAS~\cite{ppaas} also conditions the policy on the target, generalizes to unseen ones and checks 45
+manufacturing variations, with the same open tools as ours; GCN-RL~\cite{gcnrl} reads the circuit as a graph and
+transfers a policy across manufacturing processes and between two topologies. We keep RL in a simulation loop and aim
+for transfer, but our policy never outputs sizes: like MetaBO~\cite{metabo}, which learns the acquisition rule of
+Bayesian optimization, it picks which offered design to simulate next, one policy for all circuits, tested on new
+topologies.
 
-\textbf{Feasible regions and performance spaces.} SVM classifiers~\cite{debernardinis,linli}, Bayesian neural
-networks~\cite{zhang22} and GP level-set estimation~\cite{gotovos} learn the pass/fail boundary of one circuit from
-scratch; MOJITO-R~\cite{mojitor} maps the Pareto set of a 3,528-topology library by evolutionary search in about
-48\,h on 30 cores. We keep GP level-set as a baseline and as the belief inside our environment; what we add is the
-feasibility objective and a selection rule tested on held-out topologies. Graph models (CktGNN~\cite{cktgnn}, Wu \&
-Savidis~\cite{wusavidis}) predict performance at a given sizing from thousands of circuits (ours: Section~\ref{sec:gnn}).
+\textbf{Mapping where a circuit works.} Instead of one good design, some work estimates the whole region of sizings
+that pass: classifiers (SVMs~\cite{debernardinis,linli}, Bayesian neural networks~\cite{zhang22}) and GP level-set
+estimation~\cite{gotovos}, which samples near the predicted pass/fail boundary, each learning one circuit from
+scratch; MOJITO-R~\cite{mojitor} maps the best trade-offs of a 3,528-topology library by evolutionary search
+(48\,h on 30 cores). We use GP level-set as a baseline and as the model inside our environment; what we add is learning,
+across circuits, which design to simulate next. Graph neural networks (CktGNN~\cite{cktgnn}, Wu \&
+Savidis~\cite{wusavidis}) predict performance from a circuit's structure and sizes, trained on thousands of
+circuits (ours: Section~\ref{sec:gnn}).
 
-\textbf{LLMs for analog design.} AnalogCoder~\cite{analogcoder} and AnalogCoder-Pro~\cite{analogcoderpro} write
-topologies as code, size them by Bayesian optimization and repair them from simulation errors; ADO-LLM~\cite{adollm}
-puts LLM proposals inside Bayesian optimization; AnalogXpert~\cite{analogxpert}, EEsizer~\cite{eesizer} and
-AnalogSAGE~\cite{analogsage} add rule checks, LLM sizing through ngspice, and agents for selection and sizing. \emph{Similar:}
-the LLM chooses the topology, a checker screens it, a numerical method sizes it. \emph{Different:} our LLM never gives
-a size and also makes the give-up call, scored against a rule baseline on specifications whose achievability is known exactly.
+\textbf{LLMs for analog design.} LLMs write circuits as code and repair them from simulation errors
+(AnalogCoder~\cite{analogcoder}, AnalogCoder-Pro~\cite{analogcoderpro}), propose designs inside Bayesian optimization
+(ADO-LLM~\cite{adollm}), check designs against rules (AnalogXpert~\cite{analogxpert}), size circuits by calling the
+simulator (EEsizer~\cite{eesizer}) or work as teams of agents (AnalogSAGE~\cite{analogsage}). As there, our LLM
+chooses the topology and a numerical method sizes it; unlike them, it never gives a size and it decides when to give
+up, scored against a rule baseline on specifications whose achievability is known exactly.
 
 % ==================================================================
 \section{Methodology}\label{sec:loop}
