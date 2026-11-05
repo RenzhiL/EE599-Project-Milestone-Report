@@ -56,16 +56,17 @@
 % ==================================================================
 \section{Summary}
 
-We map where an amplifier specification can be met. An LLM proposes topologies, a learned RL explorer chooses which
+We map where an amplifier specification can be met: an LLM proposes topologies, a learned RL explorer chooses which
 sizings to simulate, and a topology is accepted only on a simulated design that meets every target
-(Section~\ref{sec:loop}). The milestone narrows the proposal twice (Section~\ref{sec:goals}): every score is at the
-nominal corner, and the RL reward and headline metric became \emph{finding} a design that meets the specification,
-the answer the design loop needs; the planned uncertainty-drop reward was not built in time, and IoU against the
-exact feasible sets is reported beside it. On 411 test specifications, choosing among offered designs by a GP belief
-needs 0.3--0.6$\times$ the simulations of the best baseline and maps the feasible set with about twice its IoU, but the
-learned DQN does not yet beat a fixed greedy rule on the same belief (Section~\ref{sec:rl}). As the designer, Claude
-Sonnet gave up on fewer achievable specifications than a rule baseline (Section~\ref{sec:llm}). The loop runs on
-stored designs with a stand-in compiler; the compiler and the explorer are not connected to it yet.
+(Section~\ref{sec:loop}). Milestone 1 finalizes this workflow and builds \emph{one} RL environment and harness in
+which every model is trained and scored the same way, with a short first comparison to decide which models to pursue
+(Section~\ref{sec:goals}). To make models comparable, one reward was frozen: \emph{finding} a design that meets the
+specification, the answer the design loop needs; IoU against the exact feasible sets is reported beside it. On 411 test specifications, choosing among offered designs by a GP belief needs
+0.3--0.6$\times$ the simulations of the best baseline and maps with about twice its IoU; on the proposal's own
+mapping task (1\% feasible, 600 simulations) it reaches IoU 0.99 with no warm start. The learned DQN does not yet beat
+a fixed greedy rule on the same belief, so the final report turns to rewards and features for mapping
+(Section~\ref{sec:rl}). As the designer, Claude Sonnet gave up on fewer achievable specifications than a rule
+baseline (Section~\ref{sec:llm}).
 
 % ==================================================================
 \section{Against the proposal's milestone goals, and what changed}\label{sec:goals}
@@ -122,9 +123,8 @@ puts LLM proposals inside Bayesian optimization; AnalogXpert~\cite{analogxpert} 
 checks them with rules before simulation; EEsizer~\cite{eesizer} lets the LLM size by calling ngspice;
 AnalogSAGE~\cite{analogsage} splits topology selection, refinement and sizing among agents on SKY130. \emph{Similar:}
 the LLM chooses the topology, a checker screens it, a numerical method sizes it. \emph{Different:} our LLM never gives
-a size; sizing is a learned explorer shared by all circuits; a topology is accepted only on a simulated design that
-meets every target; the LLM also makes the give-up call, scored against a rule baseline on specifications whose
-achievability is known exactly; and licensed process data never reaches the model.
+a size; a topology is accepted only on a simulated design meeting every target; and the LLM also makes the give-up
+call, scored against a rule baseline on specifications whose achievability is known exactly.
 
 % ==================================================================
 \section{The design loop (new framework)}\label{sec:loop}
@@ -148,11 +148,9 @@ achievability is known exactly; and licensed process data never reaches the mode
 {\footnotesize Built: 1, 2, 4, 6, 7 on stored or live designs; 3 is a stand-in for now; 5 is trained, not yet connected to the loop.}
 \end{center}
 \vspace{-4pt}
-Each part does what it is reliable at. The LLM brings circuit knowledge but never gives a transistor size; it
-proposes catalogue circuits or new ones as a \emph{generic circuit} (devices, connections, roles, required regions).
-The compiler (fixed, not learned) checks it (complete, every net driven at DC, voltage ratings, not a copy of a test
-circuit) and writes it for one process from a kit record, so any proposal runs like a catalogue circuit; device
-limits come from the kit, never from the LLM. The simulator is the only judge: a topology is accepted only on a
+The LLM brings circuit knowledge but never gives a transistor size; it proposes catalogue circuits or new ones as a
+\emph{generic circuit} (devices, connections, roles, required regions). The compiler (fixed, not learned) checks it
+and writes it for one process, so any proposal runs like a catalogue circuit. The simulator is the only judge: a topology is accepted only on a
 simulated design meeting every target, and ``not found'' after $R$ rounds of $N$ topologies (default 3 and 3) does
 not mean impossible. The \textbf{rule baseline} makes the same call by trying eligible catalogue circuits fewest
 devices first.
@@ -184,16 +182,14 @@ starting from 2 random designs per free knob. At each step the environment offer
 drawn by a \emph{candidate setting} (\texttt{sobol32pk}: evenly spread; \texttt{spread\_local32pk}: half near the best
 design so far). One GP per target slack and one for biasing, fitted on the designs simulated so far, give every
 candidate a chance of meeting the specification, $P(\text{bias})\prod_i P(\text{target } i \text{ met})$, and 16
-features (that chance, predicted worst slack and its uncertainty, distances to simulated and to meeting designs,
-budget left, \dots); 9 episode features serve a value function. The action picks one candidate to simulate; the
+features (that chance, the worst predicted slack and its uncertainty, distances, budget left, \dots). The action picks one candidate to simulate; the
 episode ends when the budget is spent. Reward: 1 for the first design that meets the specification, 0.25 for each one
 after (DQN discount 0.99). Finding was chosen over the uncertainty drop or IoU gain because the loop accepts a topology only
 on a found design, and the later-hit bonus rewards finding the rest of a small feasible set; the three rewards are an
 ablation for the final report. \emph{Greedy} is a fixed rule, not RL: it picks the candidate with the highest chance
 (the probability-of-feasibility acquisition of constrained BO), and a policy with weight 1 on that feature and 0 on
 the rest is greedy. The baselines pick from the whole design set with their own objectives (boundary, Pareto front,
-coverage), so finding favours the methods built for it; IoU, the map's overlap with the exact feasible set
-(simulated designs at their result, the belief elsewhere), is the proposal's own metric. DQN: one model per setting,
+coverage), so finding favours the methods built for it; IoU, the map's overlap with the exact feasible set, is the proposal's own metric. DQN: one model per setting,
 3 training seeds, 200k steps, 6.9k parameters, untuned. \textbf{Data.} Validation: the tasks of three circuits held
 out of training (82 achievable, 42 infeasible); test: those plus three more held-out circuits, unseen 3-knob grids
 and two new topologies (411 achievable, 211 infeasible). Means over achievable tasks, 3 budgets and 10 seeds; a run
@@ -227,19 +223,22 @@ Random & 27.4 [20.6, 34.9] & 72\% & 0.31 & 22.6 [19.9, 25.4] & 66\% & 0.25 & 19.
   every level), worse on validation, mostly on tight specs (DQN 19.5 vs greedy 16.2 simulations). The 3 training seeds
   differ by 0.3--1.3 simulations (sd of each model's mean) and 0.01--0.04 in IoU. Greedy is strong because the belief
   already carries most of what matters; beating it is the RL question for the final report.
-  \item Limits: the sets are coarse and tight specs are often met by a single design, so IoU there mostly measures
-  finding it; budgets are up to half of a finite set; ground truth costs (levels per knob)$^{\text{knobs}}$, so beyond
-  4 free knobs we use 512 random designs, and larger spaces will be scored on fresh designs (designs found, first hit).
-  \item Infeasible specs: the map's highest chance on unsimulated designs separates achievable from infeasible test
-  tasks with AUROC 0.83--0.96 for DQN vs 0.73 for greedy, but random pick also reaches 0.91, so this does not yet show
-  skill.
+  \item Scaling: simulations to the first hit grow as (feasible share)$^{-0.63}$ for greedy and DQN, $^{-0.75}$ for
+  GP level-set and $^{-0.93}$ for random, and greedy needs 0.3--0.5$\times$ random's at every number of free knobs. On m1's small sets
+  IoU mostly measures finding; ground truth costs (levels per knob)$^{\text{knobs}}$.
+  \item Mapping check, the proposal's task (\texttt{diffpair\_rload}, 172 of 16,807 grid designs feasible, 600
+  simulations, 5 seeds; sweeps from an older simulator version): IoU 0.99 for greedy with no warm start, 0.82--0.98 for
+  the six DQN models, 0.31 for random pick, against 0.17 for GP level-set cold and 0.88 warm-started from GF\,180\,nm
+  (which leads early: 0.83 vs 0.69 at 200).
+  \item Infeasible specs: the map's highest chance separates achievable from infeasible test tasks with AUROC
+  0.83--0.96 for DQN vs 0.73 for greedy, but random pick also reaches 0.91: no skill shown yet.
 \end{itemize}
 
 % ==================================================================
 \section{Preliminary results: the LLM designer}\label{sec:llm}
 
 \textbf{Rule baseline} (stored 512-design pools, screen 128 + search 200 per topology; 258 training specs $\times$ 10
-seeds): 76\% accepts, never wrong by construction; wrong ``not found'' on 13.6\% of achievable specs (21\% of tight),
+seeds): 76\% accepts, never wrong; wrong ``not found'' on 13.6\% of achievable specs,
 mostly because the meeting circuit lies beyond the first nine tried; median 384 simulations to accept, 2,952 to give
 up. \textbf{LLM vs rules}, same stored checks, catalogue circuits only, 50 level-stratified specs per seed, specs
 shown under neutral labels:
@@ -270,23 +269,20 @@ sizings, the stand-in search misses even on \texttt{miller2} itself (0 of 1,128)
 \section{Revised goals for the final report}
 
 \begin{itemize}
-  \item \textbf{Required, RL:} PPO under the same protocol, PPO vs DQN chosen on validation by the rule fixed in
-  advance, $\le$8 tuning trials; success is a first hit below greedy's on tight test specs, paired 95\% interval below
-  zero, confirmed on fresh designs. IoU against the exact sets with intervals over training seeds, and its
-  sensitivity to grid resolution (the stored 7-level sweeps against their 4-level subgrid). The reward ablation:
-  finding vs uncertainty drop vs IoU gain. Cross-process transfer to GF\,180\,nm against a warm-started GP.
+  \item \textbf{Required, RL:} PPO vs DQN chosen on validation, $\le$8 tuning trials; success is a first hit below
+  greedy's on tight test specs (paired 95\% interval below zero), confirmed on fresh designs. Mapping as the headline:
+  IoU on large grids and its sensitivity to grid resolution; the reward ablation (finding, uncertainty drop, find
+  then map); transfer to GF\,180\,nm against a warm-started GP.
   \item \textbf{Required, design loop:} the compiler for generic circuits; the full loop on live simulation with the
   trained explorer as the search; new topologies on held-out specifications, with a phase-margin target.
   \item \textbf{Optional:} a local model fine-tuned for topology suggestion only, on 341 public amplifier netlists
-  with bias generators added; topology-aware explorer features (episode history, then hand-made circuit context, a
-  learned graph encoder only with hundreds of training topologies); user constraints; TSMC 65\,nm.
+  with bias generators added; topology-aware explorer features; user constraints; TSMC 65\,nm.
 \end{itemize}
 \textbf{Proposal feedback.} \emph{Variation:} narrowed to the nominal corner. \emph{Prior work:} corrected
-(Section~\ref{sec:related}). \emph{Scaling:} set sizes and feasible shares in Section~\ref{sec:goals}, cost and plan
-in Section~\ref{sec:rl}; the policy's size does not grow with knobs. \emph{Isolating RL:} greedy on the same belief
-(done; the gain is the environment's); the warm-started GP comes with the transfer test (final). \emph{Reward:}
-defined, and why finding (Section~\ref{sec:rl}); the three-way ablation is final. \emph{Seeds and IoU:} 10 run seeds,
-3 training seeds with their spread, IoU reported; grid resolution is final. The LLM reads per-design tables and its
+(Section~\ref{sec:related}). \emph{Scaling:} Sections~\ref{sec:goals} and~\ref{sec:rl}. \emph{Isolating RL:} greedy
+on the same belief, which also beats the warm-started GP on the mapping check; the GF\,180\,nm transfer test is
+final. \emph{Reward:} defined and justified (Section~\ref{sec:rl}); the ablation is final. \emph{Seeds and IoU:}
+training-seed spread and IoU intervals shown; grid resolution is final. The LLM reads per-design tables and its
 session history, as suggested.
 
 \newpage
