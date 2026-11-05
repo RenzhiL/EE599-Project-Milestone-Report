@@ -56,23 +56,21 @@
 
 % ==================================================================
 \section{Introduction}\label{sec:related}
-Analog circuit design turns a specification (gain, bandwidth, phase margin, power at a given load) into a circuit. The
-designer picks a \emph{topology}, the arrangement of transistors, resistors and capacitors, then \emph{sizes} it:
-device dimensions, bias and supply. Each candidate is checked by a slow simulation, and for a demanding
-specification often under 1\% of a topology's sizings meet it. Automation today sizes a given topology toward
-given targets, or learns the pass/fail region of one circuit from scratch; which topology can meet a specification at
-all, and when to stop trying one, is still left to the designer's experience.
+Analog circuit design turns a specifications combination (gain, bandwidth, phase margin, power, etc.) into a chip to be fabricated. The
+designer picks a \emph{topology}, the arrangement of components (transistors, resistors, capacitors, etc.), then \emph{sizes} the
+device dimensions, bias, and supply. Each design needs to be verified by different Spice simulations. For a demanding
+specification combination, the margin for sizing is very small. Automation today sizes a given topology toward
+given targets or learns the pass/fail region of one circuit from scratch; which topology can meet a specification at
+all and when to stop trying one is still left to the designer's experience.
 
-We propose a design loop that splits this work (Section~\ref{sec:loop}). An LLM acts as the designer: it proposes
-topologies and decides whether to accept, retry or give up. A circuit compiler turns each proposal into a netlist that
-can be simulated. An RL explorer, trained once across many circuits, chooses which sizings to simulate, first to find
-a design that meets the specification and ultimately to map where it can be met, in as few simulations as possible. A
-topology is accepted only on a simulated design that meets every target.
+We propose a design loop that splits this work (Section~\ref{sec:loop}). An LLM acts as the designer, proposing 
+topologies and deciding whether to accept, retry, or relax the spec until the target is feasible. The topology selected by the LLM is then fed to the RL explorer, which is trained once across many circuits, choosing which sizings to simulate, first to find
+a design that meets the specification and ultimately to map where it can be met, in as few simulations as possible. Since many Process Design Kit (PDK) today remain confidential information, a circuit compiler is designed as a carrier between LLM and RL model such that none of them will be trained on process specific information. A topology is accepted only if it is based on a simulated design that meets every target.
 
 Milestone 1 finalizes this workflow and builds one RL environment and evaluation harness in which every explorer is
-trained and scored the same way, on 20 amplifier circuits whose feasible sets are known exactly, with a first
-comparison to decide which models to pursue (Section~\ref{sec:goals}). In it a learned explorer, PPO, needs fewer
-simulations than a fixed rule to find a design (mapping is the final report's question), and Claude as the designer gives up wrongly less often than a rule
+trained and scored the same way, on 20 amplifier circuits whose feasible sets are known exactly through parameter sweeping with limited grid resolution, with a first
+comparison to decide which models to pursue (Section~\ref{sec:goals}). In it, a learned explorer, PPO, needs fewer
+simulations than a fixed rule to find a design (mapping is the final report's question), and Claude, as the designer, gives up wrongly less often than a rule
 baseline (Section~3).
 
 \textbf{RL for circuit sizing.} AutoCkt~\cite{autockt} trains PPO on sampled target specifications and reaches unseen
