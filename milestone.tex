@@ -56,17 +56,24 @@
 
 % ==================================================================
 \section{Introduction}\label{sec:related}
-We map where an amplifier specification can be met: an LLM proposes topologies, a learned RL explorer will choose which
-sizings to simulate, and a topology is accepted only on a simulated design that meets every target
-(Section~\ref{sec:loop}). Milestone 1 finalizes this workflow and builds \emph{one} RL environment and harness in
-which every model is trained and scored the same way, with a short first comparison to decide which models to pursue
-(Section~\ref{sec:goals}). To make models comparable, one reward was frozen: \emph{finding} a design that meets the
-specification, the answer the design loop needs; IoU against the exact feasible sets is reported beside it. On 411 test specifications, choosing among offered designs by a GP belief needs
-0.3--0.6$\times$ the simulations of the best baseline and maps with about twice its IoU; on the proposal's own
-mapping task (1\% feasible, 600 simulations) it reaches IoU 0.99 with no warm start. PPO, chosen on validation, needs 1.1 fewer simulations than a
-fixed greedy rule on the same belief (2.7 on tight specifications\footnote{\emph{Knob}: a design variable left free (a size, the supply or the input level). \emph{m1}: the Milestone 1 task set (Section~\ref{sec:goals}). \emph{Easy, medium, tight}: spec levels by the share of designs meeting them (Section~\ref{sec:goals}). \emph{First hit}: simulations until the first design that meets the spec. \emph{Random pick}: a random choice among the candidates the RL environment offers (not the \emph{Random} baseline). \emph{Candidate settings}: 32 candidates per knob by Sobol, uniform or half near the best design (\texttt{sobol32pk}, \texttt{random32pk}, \texttt{spread\_local32pk}), or 256 Sobol points (\texttt{sobol256}). Budgets are 10/25/50\% of the set, at least 12 simulations.}), the first margin due to learning; DQN does not beat
-greedy (Section~\ref{sec:rl}). As the designer, Claude Sonnet wrongly gave up on 2 of 83 achievable specifications, against 11
-for a rule baseline ($p = 0.004$; Haiku not significant; Section~\ref{sec:llm}).
+Analog circuit design turns a specification (gain, bandwidth, phase margin, power at a given load) into a circuit. The
+designer picks a \emph{topology}, the arrangement of transistors, resistors and capacitors, then \emph{sizes} it:
+device dimensions, bias and supply. Each candidate is checked by a slow simulation, and for a demanding
+specification often under 1\% of a topology's sizings meet it. Automation today sizes a given topology toward
+given targets, or learns the pass/fail region of one circuit from scratch; which topology can meet a specification at
+all, and when to stop trying one, is still left to the designer's experience.
+
+We propose a design loop that splits this work (Section~\ref{sec:loop}). An LLM acts as the designer: it proposes
+topologies and decides whether to accept, retry or give up. A circuit compiler turns each proposal into a netlist that
+can be simulated. An RL explorer, trained once across many circuits, chooses which sizings to simulate, first to find
+a design that meets the specification and ultimately to map where it can be met, in as few simulations as possible. A
+topology is accepted only on a simulated design that meets every target.
+
+Milestone 1 finalizes this workflow and builds one RL environment and evaluation harness in which every explorer is
+trained and scored the same way, on 20 amplifier circuits whose feasible sets are known exactly, with a first
+comparison to decide which models to pursue (Section~\ref{sec:goals}). In it a learned explorer, PPO, needs fewer
+simulations than a fixed rule to find a design (mapping is the final report's question), and Claude as the designer gives up wrongly less often than a rule
+baseline (Section~3).
 
 \textbf{RL for circuit sizing.} AutoCkt~\cite{autockt} trains PPO on sampled target specifications and reaches unseen
 targets; PPAAS~\cite{ppaas} conditions on the goal, generalizes zero-shot to unseen goals and checks 45 corners, with
@@ -79,18 +86,16 @@ topologies; it is scored on finding a meeting design and on the feasible set it 
 \textbf{Feasible regions and performance spaces.} SVM classifiers~\cite{debernardinis,linli}, Bayesian neural
 networks~\cite{zhang22} and GP level-set estimation~\cite{gotovos} learn the pass/fail boundary of one circuit from
 scratch; MOJITO-R~\cite{mojitor} maps the Pareto set of a 3,528-topology library by evolutionary search in about
-48\,h on 30 cores. We keep GP level-set as a baseline and as the belief inside our environment; what we add is a
-selection rule learned once and reused across circuits. Graph models (CktGNN~\cite{cktgnn}, Wu \&
-Savidis~\cite{wusavidis}) predict performance at a given sizing and are trained on thousands of circuits; our own test
-(Section~\ref{sec:gnn}) found a small gain, not worth its cost, on 15 circuits.
+48\,h on 30 cores. We keep GP level-set as a baseline and as the belief inside our environment; what we add is the
+feasibility objective and a selection rule tested on held-out topologies. Graph models (CktGNN~\cite{cktgnn}, Wu \&
+Savidis~\cite{wusavidis}) predict performance at a given sizing from thousands of circuits (ours: Section~\ref{sec:gnn}).
 
 \textbf{LLMs for analog design.} AnalogCoder~\cite{analogcoder} and AnalogCoder-Pro~\cite{analogcoderpro} write
 topologies as code, size them by Bayesian optimization and repair them from simulation errors; ADO-LLM~\cite{adollm}
 puts LLM proposals inside Bayesian optimization; AnalogXpert~\cite{analogxpert}, EEsizer~\cite{eesizer} and
 AnalogSAGE~\cite{analogsage} add rule checks, LLM sizing through ngspice, and agents for selection and sizing. \emph{Similar:}
 the LLM chooses the topology, a checker screens it, a numerical method sizes it. \emph{Different:} our LLM never gives
-a size; a topology is accepted only on a simulated design meeting every target; and the LLM also makes the give-up
-call, scored against a rule baseline on specifications whose achievability is known exactly.
+a size and also makes the give-up call, scored against a rule baseline on specifications whose achievability is known exactly.
 
 % ==================================================================
 \section{Methodology}\label{sec:loop}
@@ -126,19 +131,21 @@ the source circuit), $N$ and $R$, public process numbers for hand analysis, the 
 moves, the netlists in play, and a round report, as suggested after the proposal: per topology the compiler verdict, screen
 and search; per target the reach; the best designs and closest misses; and the session history with its own notes.
 It replies with a hand analysis, generic circuits and an action, all parsed; in exploration mode it may also call a
-compiler check and up to 6 one-point simulations per round, within a hard simulation budget.
+compiler check and up to 6 one-point simulations per round, within a hard budget.
 
 
-\textbf{The RL environment.} An episode is one task (circuit, free knobs, load, specification) with a budget of simulations,
+\textbf{The RL environment.} An episode is one task (circuit, free knobs\footnote{\emph{Knob}: a design variable left free (a size, the supply or the input level). \emph{m1}: the Milestone 1 task set (Section~\ref{sec:goals}). \emph{Easy, medium, tight}: spec levels by the share of designs meeting them (Section~\ref{sec:goals}). \emph{First hit}: simulations until the first design that meets the spec. \emph{Random pick}: a random choice among the candidates the RL environment offers (not the \emph{Random} baseline). \emph{Candidate settings}: 32 candidates per knob by Sobol, uniform or half near the best design (\texttt{sobol32pk}, \texttt{random32pk}, \texttt{spread\_local32pk}), or 256 Sobol points (\texttt{sobol256}). Budgets: 10/25/50\% of the set, $\geq$12.}, load, specification) with a budget of simulations,
 starting from 2 random designs per free knob. At each step the environment offers 32 candidate designs per free knob,
 drawn by a \emph{candidate setting} (footnote~1). One GP per target slack and one for biasing, fitted on the designs simulated so far, give every
-candidate a chance of meeting the specification, $P(\text{bias})\prod_i P(\text{target } i \text{ met})$, and 16
+candidate a chance of meeting the specification, $P(\text{bias})\prod_i P(\text{target } i \text{ met})$ (targets taken as independent), and 16
 features (that chance, the worst predicted slack and its uncertainty, distances, budget left, \dots). The action picks one candidate to simulate; the
 episode ends when the budget is spent. Reward: 1 for the first design that meets the specification, 0.25 for each one
 after (discount 0.99 DQN, 0.98 PPO). Finding was chosen over the uncertainty drop or IoU gain because the loop accepts a topology only
 on a found design; the later-hit bonus rewards the rest of a small feasible set; the three rewards are a final ablation. \emph{Greedy} is a fixed rule, not RL: it picks the candidate with the highest chance
 (the probability-of-feasibility acquisition of constrained BO). The baselines pick from the whole design set with their own objectives (boundary, Pareto front,
-coverage), so finding favours the methods built for it; IoU, the map's overlap with the exact feasible set, is the proposal's own metric. DQN, PPO: a model per setting and
+coverage; GP level-set scores the target with the lowest predicted slack), so finding favours the methods built for it.
+\emph{IoU}, the proposal's metric, compares a method's map with the exact feasible set: simulated designs at their
+result, the rest feasible where the method's GP gives a chance above 0.5. DQN, PPO: a model per setting and
 training seed, 200k steps, 6.9k/3.0k parameters, untuned; PPO's setting chosen on validation; in the time available, PPO's
 test runs cover 2 training seeds.
 
@@ -147,46 +154,47 @@ test runs cover 2 training seeds.
 \subsection{RL explorer}\label{sec:rl}
 \textbf{Data.} Validation: the tasks of three circuits held
 out of training (82 achievable, 42 infeasible); test: other specs on those circuits (none shared) plus three more held-out circuits, unseen 3-knob grids
-and two new topologies (411 achievable, 211 infeasible). Means over achievable tasks, 3 budgets and 10 seeds; a run
-that finds none counts budget\,+\,1; 95\% bootstrap intervals over tasks (the table).
+and two new topologies (411 achievable, 211 infeasible). Means over achievable tasks, 3 budgets and 10 seeds; a miss
+counts budget\,+\,1; 95\% bootstrap intervals over tasks (Table~\ref{tab:rl}).
 
 \begin{table}[!t]\centering\footnotesize
-\begin{tabular}{lccc@{\hspace{8pt}}ccc@{\hspace{8pt}}ccc}
+\begin{tabular}{lccc@{\hspace{10pt}}ccc}
 \toprule
-& \multicolumn{3}{c}{Validation (82)} & \multicolumn{3}{c}{Test (411)} & \multicolumn{3}{c}{Test, first hit by kind} \\
-\cmidrule(lr){2-4}\cmidrule(lr){5-7}\cmidrule(lr){8-10}
-Method & First hit & Solved & IoU & First hit & Solved & IoU & Train circ. & Held-out & New topol. \\
+& \multicolumn{3}{c}{Validation (82 specs)} & \multicolumn{3}{c}{Test (411 specs)} \\
+\cmidrule(lr){2-4}\cmidrule(lr){5-7}
+Method & First hit & Solved & IoU & First hit & Solved & IoU \\
 \midrule
-Greedy (\texttt{spread\_local32pk}) & 6.4 [4.8, 8.3] & 98\% & 0.91 & 9.2 [7.6, 11.0] & 92\% & 0.81 & 6.6 & 13.6 & 12.2 \\
-Greedy (\texttt{sobol32pk}) & 6.6 [5.0, 8.4] & 98\% & 0.90 & 9.3 [7.7, 11.0] & 92\% & 0.81 & 6.5 & 13.6 & 12.5 \\
-DQN (\texttt{spread\_local32pk}) & 7.5 [5.6, 9.6] & 96\% & 0.88 & 9.0 [7.5, 10.5] & 92\% & 0.80 & 6.5 & 13.1 & 11.2 \\
-DQN (\texttt{sobol32pk}) & 8.7 [6.2, 11.5] & 94\% & 0.84 & 9.9 [8.4, 11.6] & 89\% & 0.74 & 7.6 & 14.0 & 12.3 \\
-PPO (\texttt{spread\_local32pk}) & 5.9 [4.4, 7.5] & 98\% & 0.91 & 8.1 [6.6, 9.7] & 94\% & 0.84 & 5.6 & 12.0 & 11.2 \\
-GP level-set & 19.6 [14.5, 24.9] & 85\% & 0.48 & 18.1 [15.8, 20.6] & 77\% & 0.39 & 14.4 & 24.5 & 20.9 \\
-NSGA-II & 22.0 [16.8, 27.9] & 78\% & 0.39 & 17.6 [15.7, 19.6] & 74\% & 0.33 & 15.1 & 21.8 & 19.1 \\
-MAP-Elites & 25.5 [19.5, 31.7] & 73\% & 0.37 & 19.4 [17.2, 21.6] & 71\% & 0.31 & 16.4 & 24.2 & 22.0 \\
-Random & 27.4 [20.6, 34.9] & 72\% & 0.31 & 22.6 [19.9, 25.4] & 66\% & 0.25 & 19.7 & 28.0 & 24.2 \\
+Greedy, spread & 6.4 [4.8, 8.2] & 98\% & 0.91 [0.89, 0.93] & 9.2 [7.6, 10.9] & 92\% & 0.81 [0.80, 0.83] \\
+Greedy, Sobol & 6.6 [4.9, 8.5] & 98\% & 0.90 [0.88, 0.92] & 9.3 [7.6, 11.0] & 92\% & 0.81 [0.80, 0.83] \\
+DQN, spread & 7.5 [5.5, 9.8] & 96\% & 0.88 [0.86, 0.90] & 9.0 [7.5, 10.7] & 92\% & 0.80 [0.78, 0.81] \\
+DQN, Sobol & 8.7 [6.3, 11.8] & 94\% & 0.84 [0.81, 0.86] & 9.9 [8.3, 11.6] & 89\% & 0.74 [0.73, 0.76] \\
+PPO, spread & 5.9 [4.4, 7.5] & 98\% & 0.91 [0.89, 0.93] & 8.1 [6.7, 9.7] & 94\% & 0.84 [0.82, 0.85] \\
+GP level-set & 19.6 [14.7, 24.7] & 85\% & 0.48 [0.41, 0.54] & 18.1 [15.8, 20.6] & 77\% & 0.39 [0.36, 0.42] \\
+NSGA-II & 22.0 [16.6, 27.5] & 78\% & 0.39 [0.34, 0.45] & 17.6 [15.7, 19.6] & 74\% & 0.33 [0.31, 0.36] \\
+MAP-Elites & 25.5 [19.5, 31.9] & 73\% & 0.37 [0.32, 0.42] & 19.4 [17.3, 21.7] & 71\% & 0.31 [0.29, 0.33] \\
+Sobol & 29.8 [22.1, 38.6] & 69\% & 0.29 [0.24, 0.35] & 22.3 [19.6, 25.1] & 66\% & 0.26 [0.24, 0.28] \\
+Random & 27.4 [20.0, 34.7] & 72\% & 0.31 [0.26, 0.36] & 22.6 [19.9, 25.2] & 66\% & 0.25 [0.23, 0.27] \\
 \bottomrule
 \end{tabular}
-\vspace{-6pt}
+\caption{Explorers on achievable specs, 95\% intervals over tasks. Spread, Sobol: candidate settings (footnote~1).}\label{tab:rl}\vspace{-10pt}
 \end{table}
 \vspace{-3pt}
 \begin{itemize}
   \item Choosing among offered candidates by the belief, learned or greedy, needs 0.3--0.6$\times$ the simulations of
   the best baseline (the upper end on held-out circuits and new topologies), solves 9--17 points more tasks and maps the feasible set with
-  about twice the IoU. Greedy learns nothing, so this gain belongs to the environment (offered candidates, a GP per
-  constraint); RL's contribution is its margin over greedy.
+  about twice the IoU. Greedy learns nothing, so this gain belongs to the environment (offered candidates, the whole set on 2-knob
+  grids; a GP per constraint); RL's contribution is its margin over greedy.
   \item PPO beats greedy in its setting: test $-1.11$ simulations [$-1.50$, $-0.76$] (the two seeds: $-1.05$, $-1.17$), tight
-  $-2.73$ [$-3.75$, $-1.78$], IoU 0.84 [0.82, 0.85] vs 0.81 [0.80, 0.83]; validation: ahead in all four settings.
+  $-2.73$ [$-3.75$, $-1.78$], IoU $+0.023$ [0.018, 0.028]; ahead on training circuits, held-out circuits and new topologies; on validation, in all four settings.
   \item DQN does not beat greedy: level on test, worse on validation in all four settings (tight validation
   specs: 19.5 vs 16.2, $+3.3$ [1.6, 5.2]). DQN seeds differ by 0.3--1.3 simulations, 0.01--0.04 in IoU.
   \item Scaling: simulations to the first hit grow as (feasible share)$^{-0.63}$ for greedy and DQN, $^{-0.75}$ for
   GP level-set and $^{-0.93}$ for random, and greedy needs 0.3--0.5$\times$ random's at every number of free knobs. On m1's small sets
   IoU mostly measures finding; ground truth costs (levels per knob)$^{\text{knobs}}$.
   \item Mapping check (\texttt{diffpair\_rload}, 172 of 16,807 grid designs feasible, 600
-  simulations, 5 seeds; sweeps from an older simulator version): IoU 0.99 for greedy with no warm start, 0.99 for the
-  PPO models (behind greedy early: 0.56--0.60 vs 0.67 at 200), 0.82--0.98 for the six DQN models, 0.31 for random pick, against 0.17 for GP level-set cold and 0.88 warm-started from GF\,180\,nm
-  (ahead early: 0.83 vs 0.69 at 200).
+  simulations, i.e.\ 3.5$\times$ the feasible designs, 5 seeds; sweeps from an older simulator version): IoU 0.99 for greedy with no warm start, 0.99 for the
+  PPO models (behind greedy early: 0.56--0.60 vs 0.67 at 200 in the same setting), 0.82--0.98 for the six DQN models, 0.31 for random pick, against 0.17 for GP level-set cold and 0.88 warm-started from the pilot's GF\,180\,nm
+  sweep (ahead early: 0.83 vs greedy's 0.69 at 200).
   \item Infeasible specs: the map's highest chance separates achievable from infeasible test tasks (AUROC 0.83--0.96
   DQN, 0.77--0.78 PPO, 0.73 greedy), but random pick reaches 0.91: no skill yet.
 \end{itemize}
@@ -215,19 +223,16 @@ Claude Sonnet 5 & 78\% & 1 & 0.87$\times$ & 4 / 0 & 84\% & 1 & 0.88$\times$ & 5 
 ``Wrong n.f.'': achievable specs given up as not found; ``Sims'': simulations relative to the rules; ``Found / lost'': specs met where the rules gave up, and the reverse. Over both seeds Sonnet found 9 and lost none
 (sign test $p = 0.004$); Haiku found 9 and lost 5 ($p = 0.42$). No wrong accepts. Limits: the rules try at most nine
 circuits ($R \times N$), every accept is at the nominal corner, and the catalogue lists each circuit's metrics, which
-may hint at a specification's source circuit despite the neutral label. \textbf{New topologies, a demonstration} (Sonnet with a compiler check and one-point simulations as tools; a stand-in compiler and
-random search). With \texttt{miller2} hidden, Sonnet met two of the three specs only it meets, in two runs, with
-uncompensated two-stage circuits it drew (no phase-margin target yet). The third, met by 1 in 512 \texttt{miller2}
-sizings, the stand-in search misses even on \texttt{miller2} itself (0 of 1,128).
+may hint at a specification's source circuit despite the neutral label. \textbf{New topologies} (a demonstration: compiler check and one-point simulations as tools,
+a stand-in compiler): with \texttt{miller2} hidden, Sonnet met two of the three specs only it meets with two-stage
+circuits it drew (no phase-margin target yet); the third, met by 1 in 512 \texttt{miller2} sizings, the stand-in search
+misses even on \texttt{miller2} (0 of 1,128).
 
 \subsection{Graph model: added, then removed}\label{sec:gnn}
-\textbf{Added} as the proposal's optional model, to predict feasibility from circuit structure (zero-shot AUC
-0.74--0.84 on a held-out topology from the netlist alone). \textbf{Removed} after two leave-one-circuit-out tests on
-the 15 circuits without capacitors. \emph{Ranking topologies:} quick screens needed to reach a circuit that meets the spec
-(400 specs) were 4.3 in random order, 2.5 fewest devices first, 2.3 for the GNN and 1.3 with perfect knowledge, so
-counting devices gives nearly all of it. \emph{Predicting metrics:} a GP on 32 of a circuit's own simulations beat a
-GNN trained on the other 14 (rank correlation 0.83/0.95/0.99 vs 0.57/0.79/0.64 for gain/bandwidth/power). Too few circuits to learn
-from; the compiler and quick screen answer by simulation.
+Added as the proposal's optional model, removed after two
+leave-one-circuit-out tests on 15 circuits: ranking topologies by fewest devices needs 2.5 quick screens to a meeting
+circuit, the GNN 2.3; a GP on 32 of a circuit's own simulations predicts its metrics better than a GNN trained on the
+other 14. Too few circuits to learn from.
 
 % ==================================================================
 \section{Status against the proposal, and plan to the final report}\label{sec:goals}
@@ -251,7 +256,7 @@ Graph track (optional) & dropped & GNN built and tested, then removed: counting 
 Proposal & Now & Why \\
 \midrule
 Motivated by process variation & Nominal corner only (typical, 27\,$^\circ$C) & Variation was never scored (feedback) \\ \rowrule
-Reward: uncertainty drop; metric IoU & Reward 1 for the first meeting design, 0.25 per later one; metric: simulations to the first; IoU beside it & The loop accepts a topology only on a found design; the uncertainty reward was not built in time \\ \rowrule
+Reward: uncertainty drop; metric IoU & Reward 1 for the first meeting design, 0.25 per later one; metric: simulations to the first; IoU beside it & The loop accepts a topology only on a found design; uncertainty and IoU rewards are a final ablation \\ \rowrule
 Policy per topology & One policy: scores offered designs by 16 shared features + 9 episode features & Runs on any circuit, knob count, spec, load \\ \rowrule
 Rule supervisor; LLM agent (opt.) & LLM \emph{designer}: proposes topologies, calls accept / retry / give up; rules are its baseline & Rejecting unachievable specs is worth learning \\ \rowrule
 \bottomrule
@@ -266,8 +271,7 @@ Rule supervisor; LLM agent (opt.) & LLM \emph{designer}: proposes topologies, ca
   \item \textbf{Required, design loop:} the compiler for generic circuits; the full loop on live simulation with the
   trained explorer as the search, judged by wrong ``not found'' calls and simulations against the rule baseline on
   held-out specifications; new topologies met with a phase-margin target.
-  \item \textbf{Optional:} a local model fine-tuned for topology suggestion only, on 341 public amplifier netlists
-  with bias generators added; topology-aware explorer features; user constraints; TSMC 65\,nm.
+  \item \textbf{Optional:} a local LLM for topology suggestion only (341 public netlists); user constraints; TSMC 65\,nm.
 \end{itemize}
 \textbf{Proposal feedback.} \emph{Variation:} nominal corner only. \emph{Prior work:} corrected
 (Section~\ref{sec:related}). \emph{Scaling:} Sections~\ref{sec:goals}, \ref{sec:rl}. \emph{Isolating RL:} greedy on the
