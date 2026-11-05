@@ -63,9 +63,9 @@ which every model is trained and scored the same way, with a short first compari
 (Section~\ref{sec:goals}). To make models comparable, one reward was frozen: \emph{finding} a design that meets the
 specification, the answer the design loop needs; IoU against the exact feasible sets is reported beside it. On 411 test specifications, choosing among offered designs by a GP belief needs
 0.3--0.6$\times$ the simulations of the best baseline and maps with about twice its IoU; on the proposal's own
-mapping task (1\% feasible, 600 simulations) it reaches IoU 0.99 with no warm start. The learned DQN does not yet beat
-a fixed greedy rule on the same belief, so the final report turns to rewards and features for mapping
-(Section~\ref{sec:rl}). As the designer, Claude Sonnet gave up on fewer achievable specifications than a rule
+mapping task (1\% feasible, 600 simulations) it reaches IoU 0.99 with no warm start. PPO, chosen on validation, needs 1.1 fewer simulations than a
+fixed greedy rule on the same belief (2.6 on tight specifications), the first margin due to learning; DQN does not beat
+greedy (Section~\ref{sec:rl}). As the designer, Claude Sonnet gave up on fewer achievable specifications than a rule
 baseline (Section~\ref{sec:llm}).
 
 % ==================================================================
@@ -79,7 +79,7 @@ Milestone goal (proposal) & Status & Where it stands \\
 Benchmark: environment and ground-truth sweeps for three topologies & exceeded & Task set \texttt{m1}: 20 circuits (+2 new test topologies) on SkyWater 130\,nm, loads 30\,fF--1\,pF; per circuit four design sets, every design simulated ($\approx$30k simulations): a grid over 2, 3 or 4 free knobs (64--256 designs) or 512 random designs with every knob free; 1,324 specs labelled exactly, by the share of designs meeting them: easy (median 19\%), medium (4\%), tight (0.4\%, often one design), infeasible \\ \rowrule
 Reparameterized actions ($g_m/I_D$) and a mask of invalid designs & dropped & The design variables are sizes, supply and input level; whether a design biases is simulated, and the belief predicts it (P(bias)) instead of a hand-made mask per circuit \\ \rowrule
 Baselines: random, Sobol, GP level-set, NSGA-II, MAP-Elites & done, re-scored & All five in one harness: same tasks, starting designs, 10 seeds, budgets of 10/25/50\% of each set (12--256 simulations); scored on finding and on IoU \\ \rowrule
-First PPO policy on one topology vs baselines & changed & Two algorithms on one shared environment across all circuits: masked Double DQN done (Section~\ref{sec:rl}); PPO \pending{Samir} \\ \rowrule
+First PPO policy on one topology vs baselines & changed & Two algorithms on one shared environment across all circuits: masked Double DQN and PPO, done (Section~\ref{sec:rl}); PPO is ahead of greedy, DQN is not \\ \rowrule
 Early cross-process transfer test & moved & GF\,180\,nm design sets are not built yet; the test moves to the final report, with the warm-started GP \\ \rowrule
 Graph track (optional) & dropped & GNN built and tested, then removed: counting devices ranks topologies nearly as well, and a GP on 32 of a circuit's own simulations predicts it better (Section~\ref{sec:gnn}) \\
 \bottomrule
@@ -184,13 +184,11 @@ design so far). One GP per target slack and one for biasing, fitted on the desig
 candidate a chance of meeting the specification, $P(\text{bias})\prod_i P(\text{target } i \text{ met})$, and 16
 features (that chance, the worst predicted slack and its uncertainty, distances, budget left, \dots). The action picks one candidate to simulate; the
 episode ends when the budget is spent. Reward: 1 for the first design that meets the specification, 0.25 for each one
-after (DQN discount 0.99). Finding was chosen over the uncertainty drop or IoU gain because the loop accepts a topology only
-on a found design, and the later-hit bonus rewards finding the rest of a small feasible set; the three rewards are an
-ablation for the final report. \emph{Greedy} is a fixed rule, not RL: it picks the candidate with the highest chance
-(the probability-of-feasibility acquisition of constrained BO), and a policy with weight 1 on that feature and 0 on
-the rest is greedy. The baselines pick from the whole design set with their own objectives (boundary, Pareto front,
-coverage), so finding favours the methods built for it; IoU, the map's overlap with the exact feasible set, is the proposal's own metric. DQN: one model per setting,
-3 training seeds, 200k steps, 6.9k parameters, untuned. \textbf{Data.} Validation: the tasks of three circuits held
+after (discount 0.99 DQN, 0.98 PPO). Finding was chosen over the uncertainty drop or IoU gain because the loop accepts a topology only
+on a found design; the later-hit bonus rewards the rest of a small feasible set; the three rewards are a final ablation. \emph{Greedy} is a fixed rule, not RL: it picks the candidate with the highest chance
+(the probability-of-feasibility acquisition of constrained BO). The baselines pick from the whole design set with their own objectives (boundary, Pareto front,
+coverage), so finding favours the methods built for it; IoU, the map's overlap with the exact feasible set, is the proposal's own metric. DQN, PPO: a model per setting,
+3 training seeds, 200k steps, 6.9k/3.0k parameters, untuned; PPO's setting chosen on validation. \textbf{Data.} Validation: the tasks of three circuits held
 out of training (82 achievable, 42 infeasible); test: those plus three more held-out circuits, unseen 3-knob grids
 and two new topologies (411 achievable, 211 infeasible). Means over achievable tasks, 3 budgets and 10 seeds; a run
 that finds none counts budget\,+\,1; 95\% bootstrap intervals over tasks:
@@ -206,6 +204,7 @@ Greedy (\texttt{spread\_local32pk}) & 6.4 [4.8, 8.3] & 98\% & 0.91 & 9.2 [7.6, 1
 Greedy (\texttt{sobol32pk}) & 6.6 [5.0, 8.4] & 98\% & 0.90 & 9.3 [7.7, 11.0] & 92\% & 0.81 & 6.5 & 13.6 & 12.5 \\
 DQN (\texttt{spread\_local32pk}) & 7.5 [5.6, 9.6] & 96\% & 0.88 & 9.0 [7.5, 10.5] & 92\% & 0.80 & 6.5 & 13.1 & 11.2 \\
 DQN (\texttt{sobol32pk}) & 8.7 [6.2, 11.5] & 94\% & 0.84 & 9.9 [8.4, 11.6] & 89\% & 0.74 & 7.6 & 14.0 & 12.3 \\
+PPO (\texttt{spread\_local32pk}) & 5.9 [4.4, 7.5] & 98\% & 0.91 & 8.2 [6.7, 9.9] & 94\% & 0.84 & 5.6 & 12.2 & 11.3 \\
 GP level-set & 19.6 [14.5, 24.9] & 85\% & 0.48 & 18.1 [15.8, 20.6] & 77\% & 0.39 & 14.4 & 24.5 & 20.9 \\
 NSGA-II & 22.0 [16.8, 27.9] & 78\% & 0.39 & 17.6 [15.7, 19.6] & 74\% & 0.33 & 15.1 & 21.8 & 19.1 \\
 MAP-Elites & 25.5 [19.5, 31.7] & 73\% & 0.37 & 19.4 [17.2, 21.6] & 71\% & 0.31 & 16.4 & 24.2 & 22.0 \\
@@ -219,19 +218,19 @@ Random & 27.4 [20.6, 34.9] & 72\% & 0.31 & 22.6 [19.9, 25.4] & 66\% & 0.25 & 19.
   the best baseline (the upper end on held-out circuits and new topologies), solves 9--15 points more tasks and maps the feasible set with
   about twice the IoU. Since greedy learns nothing, this gain belongs to the environment (offered candidates, a GP per
   constraint), not to RL; RL's contribution is only its margin over greedy.
-  \item The learned DQN does not beat greedy yet: level on test (paired differences inside their 95\% intervals at
-  every level), worse on validation, mostly on tight specs (DQN 19.5 vs greedy 16.2 simulations). The 3 training seeds
-  differ by 0.3--1.3 simulations (sd of each model's mean) and 0.01--0.04 in IoU. Greedy is strong because the belief
-  already carries most of what matters; beating it is the RL question for the final report.
+  \item PPO beats greedy in its setting: test $-1.05$ simulations [$-1.41$, $-0.72$], tight $-2.56$ [$-3.49$, $-1.71$],
+  IoU $+0.02$; validation: ahead in all four settings, $-0.52$ [$-0.99$, $-0.10$] in the chosen one. Test: seed 0 \pending{seeds 1--2}.
+  \item DQN does not beat greedy: level on test, worse on validation in all four settings (tight specs: 19.5 vs
+  16.2). DQN seeds differ by 0.3--1.3 simulations and 0.01--0.04 in IoU. The belief carries most of what matters.
   \item Scaling: simulations to the first hit grow as (feasible share)$^{-0.63}$ for greedy and DQN, $^{-0.75}$ for
   GP level-set and $^{-0.93}$ for random, and greedy needs 0.3--0.5$\times$ random's at every number of free knobs. On m1's small sets
   IoU mostly measures finding; ground truth costs (levels per knob)$^{\text{knobs}}$.
-  \item Mapping check, the proposal's task (\texttt{diffpair\_rload}, 172 of 16,807 grid designs feasible, 600
+  \item Mapping check (\texttt{diffpair\_rload}, 172 of 16,807 grid designs feasible, 600
   simulations, 5 seeds; sweeps from an older simulator version): IoU 0.99 for greedy with no warm start, 0.82--0.98 for
   the six DQN models, 0.31 for random pick, against 0.17 for GP level-set cold and 0.88 warm-started from GF\,180\,nm
-  (which leads early: 0.83 vs 0.69 at 200).
-  \item Infeasible specs: the map's highest chance separates achievable from infeasible test tasks with AUROC
-  0.83--0.96 for DQN vs 0.73 for greedy, but random pick also reaches 0.91: no skill shown yet.
+  (ahead early: 0.83 vs 0.69 at 200).
+  \item Infeasible specs: the map's highest chance separates achievable from infeasible test tasks (AUROC 0.83--0.96
+  DQN, 0.73 greedy), but random pick reaches 0.91: no skill yet.
 \end{itemize}
 
 % ==================================================================
@@ -269,8 +268,8 @@ sizings, the stand-in search misses even on \texttt{miller2} itself (0 of 1,128)
 \section{Revised goals for the final report}
 
 \begin{itemize}
-  \item \textbf{Required, RL:} PPO vs DQN chosen on validation, $\le$8 tuning trials; success is a first hit below
-  greedy's on tight test specs (paired 95\% interval below zero), confirmed on fresh designs. Mapping as the headline:
+  \item \textbf{Required, RL:} PPO is carried forward ($\le$8 tuning trials, chosen on validation): its margin over greedy on tight
+  stored specs (paired 95\% interval below zero) must hold on fresh designs and on mapping. Mapping as the headline:
   IoU on large grids and its sensitivity to grid resolution; the reward ablation (finding, uncertainty drop, find
   then map); transfer to GF\,180\,nm against a warm-started GP.
   \item \textbf{Required, design loop:} the compiler for generic circuits; the full loop on live simulation with the
@@ -280,10 +279,9 @@ sizings, the stand-in search misses even on \texttt{miller2} itself (0 of 1,128)
 \end{itemize}
 \textbf{Proposal feedback.} \emph{Variation:} narrowed to the nominal corner. \emph{Prior work:} corrected
 (Section~\ref{sec:related}). \emph{Scaling:} Sections~\ref{sec:goals} and~\ref{sec:rl}. \emph{Isolating RL:} greedy
-on the same belief, which also beats the warm-started GP on the mapping check; the GF\,180\,nm transfer test is
-final. \emph{Reward:} defined and justified (Section~\ref{sec:rl}); the ablation is final. \emph{Seeds and IoU:}
-training-seed spread and IoU intervals shown; grid resolution is final. The LLM reads per-design tables and its
-session history, as suggested.
+on the same belief (PPO's margin over it is RL's); it beats the warm-started GP on mapping; GF\,180\,nm transfer is
+final. \emph{Reward:} defined (Section~\ref{sec:rl}); ablation final. \emph{Seeds, IoU:} seed spread and IoU
+intervals shown; grid resolution final. The LLM reads per-design tables and its session history, as suggested.
 
 \newpage
 \begin{thebibliography}{99}\small\setlength{\itemsep}{0pt}
