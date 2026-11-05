@@ -64,7 +64,7 @@ which every model is trained and scored the same way, with a short first compari
 specification, the answer the design loop needs; IoU against the exact feasible sets is reported beside it. On 411 test specifications, choosing among offered designs by a GP belief needs
 0.3--0.6$\times$ the simulations of the best baseline and maps with about twice its IoU; on the proposal's own
 mapping task (1\% feasible, 600 simulations) it reaches IoU 0.99 with no warm start. PPO, chosen on validation, needs 1.1 fewer simulations than a
-fixed greedy rule on the same belief (2.7 on tight specifications), the first margin due to learning; DQN does not beat
+fixed greedy rule on the same belief (2.7 on tight specifications\footnote{\emph{Knob}: a design variable left free (a size, the supply or the input level). \emph{m1}: the Milestone 1 task set (Section~\ref{sec:goals}). \emph{Easy, medium, tight}: spec levels by the share of designs meeting them (Section~\ref{sec:goals}). \emph{First hit}: simulations until the first design that meets the spec. \emph{Random pick}: a random choice among the candidates the RL environment offers (not the \emph{Random} baseline). \emph{Candidate settings}: 32 candidates per knob by Sobol, uniform or half near the best design (\texttt{sobol32pk}, \texttt{random32pk}, \texttt{spread\_local32pk}), or 256 Sobol points (\texttt{sobol256}). Budgets are 10/25/50\% of the set, at least 12 simulations.}), the first margin due to learning; DQN does not beat
 greedy (Section~\ref{sec:rl}). As the designer, Claude Sonnet wrongly gave up on 2 of 83 achievable specifications, against 11
 for a rule baseline ($p = 0.004$; Haiku not significant; Section~\ref{sec:llm}).
 
@@ -86,9 +86,8 @@ Savidis~\cite{wusavidis}) predict performance at a given sizing and are trained 
 
 \textbf{LLMs for analog design.} AnalogCoder~\cite{analogcoder} and AnalogCoder-Pro~\cite{analogcoderpro} write
 topologies as code, size them by Bayesian optimization and repair them from simulation errors; ADO-LLM~\cite{adollm}
-puts LLM proposals inside Bayesian optimization; AnalogXpert~\cite{analogxpert} builds circuits from a block library and
-checks them with rules before simulation; EEsizer~\cite{eesizer} lets the LLM size by calling ngspice;
-AnalogSAGE~\cite{analogsage} splits topology selection, refinement and sizing among agents on SKY130. \emph{Similar:}
+puts LLM proposals inside Bayesian optimization; AnalogXpert~\cite{analogxpert}, EEsizer~\cite{eesizer} and
+AnalogSAGE~\cite{analogsage} add rule checks, LLM sizing through ngspice, and agents for selection and sizing. \emph{Similar:}
 the LLM chooses the topology, a checker screens it, a numerical method sizes it. \emph{Different:} our LLM never gives
 a size; a topology is accepted only on a simulated design meeting every target; and the LLM also makes the give-up
 call, scored against a rule baseline on specifications whose achievability is known exactly.
@@ -132,8 +131,7 @@ compiler check and up to 6 one-point simulations per round, within a hard simula
 
 \textbf{The RL environment.} An episode is one task (circuit, free knobs, load, specification) with a budget of simulations,
 starting from 2 random designs per free knob. At each step the environment offers 32 candidate designs per free knob,
-drawn by a \emph{candidate setting} (\texttt{sobol32pk}: evenly spread; \texttt{spread\_local32pk}: half near the best
-design so far). One GP per target slack and one for biasing, fitted on the designs simulated so far, give every
+drawn by a \emph{candidate setting} (footnote~1). One GP per target slack and one for biasing, fitted on the designs simulated so far, give every
 candidate a chance of meeting the specification, $P(\text{bias})\prod_i P(\text{target } i \text{ met})$, and 16
 features (that chance, the worst predicted slack and its uncertainty, distances, budget left, \dots). The action picks one candidate to simulate; the
 episode ends when the budget is spent. Reward: 1 for the first design that meets the specification, 0.25 for each one
@@ -256,7 +254,6 @@ Motivated by process variation & Nominal corner only (typical, 27\,$^\circ$C) & 
 Reward: uncertainty drop; metric IoU & Reward 1 for the first meeting design, 0.25 per later one; metric: simulations to the first; IoU beside it & The loop accepts a topology only on a found design; the uncertainty reward was not built in time \\ \rowrule
 Policy per topology & One policy: scores offered designs by 16 shared features + 9 episode features & Runs on any circuit, knob count, spec, load \\ \rowrule
 Rule supervisor; LLM agent (opt.) & LLM \emph{designer}: proposes topologies, calls accept / retry / give up; rules are its baseline & Rejecting unachievable specs is worth learning \\ \rowrule
-Open 7--8B LLM & Commercial models (Claude) as the designer, open processes only; a local model for topology suggestion only (final) & Stronger at low cost; no licensed data sent \\
 \bottomrule
 \end{tabularx}\par}
 
@@ -272,11 +269,10 @@ Open 7--8B LLM & Commercial models (Claude) as the designer, open processes only
   \item \textbf{Optional:} a local model fine-tuned for topology suggestion only, on 341 public amplifier netlists
   with bias generators added; topology-aware explorer features; user constraints; TSMC 65\,nm.
 \end{itemize}
-\textbf{Proposal feedback.} \emph{Variation:} narrowed to the nominal corner. \emph{Prior work:} corrected
-(Section~\ref{sec:related}). \emph{Scaling:} Sections~\ref{sec:goals} and~\ref{sec:rl}. \emph{Isolating RL:} greedy
-on the same belief (PPO's margin over it is RL's); it beats the warm-started GP on mapping; GF\,180\,nm transfer is
-final. \emph{Reward:} defined (Section~\ref{sec:loop}); ablation final. \emph{Seeds, IoU:} seed spread and IoU
-intervals shown; grid resolution final. The LLM reads per-design tables and its session history, as suggested.
+\textbf{Proposal feedback.} \emph{Variation:} nominal corner only. \emph{Prior work:} corrected
+(Section~\ref{sec:related}). \emph{Scaling:} Sections~\ref{sec:goals}, \ref{sec:rl}. \emph{Isolating RL:} greedy on the
+same belief; on mapping it passes the warm-started GP by 600 simulations; GF\,180\,nm transfer final. \emph{Reward:}
+Section~\ref{sec:loop}; ablation final. \emph{IoU:} intervals shown; grid resolution final. The LLM reads per-design tables.
 
 \newpage
 
