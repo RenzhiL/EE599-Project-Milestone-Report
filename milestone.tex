@@ -140,14 +140,15 @@ episode ends when the budget is spent. Reward: 1 for the first design that meets
 after (discount 0.99 DQN, 0.98 PPO). Finding was chosen over the uncertainty drop or IoU gain because the loop accepts a topology only
 on a found design; the later-hit bonus rewards the rest of a small feasible set; the three rewards are a final ablation. \emph{Greedy} is a fixed rule, not RL: it picks the candidate with the highest chance
 (the probability-of-feasibility acquisition of constrained BO). The baselines pick from the whole design set with their own objectives (boundary, Pareto front,
-coverage), so finding favours the methods built for it; IoU, the map's overlap with the exact feasible set, is the proposal's own metric. DQN, PPO: a model per setting,
-3 training seeds, 200k steps, 6.9k/3.0k parameters, untuned; PPO's setting chosen on validation.
+coverage), so finding favours the methods built for it; IoU, the map's overlap with the exact feasible set, is the proposal's own metric. DQN, PPO: a model per setting and
+training seed, 200k steps, 6.9k/3.0k parameters, untuned; PPO's setting chosen on validation; in the time available, PPO's
+test runs cover 2 training seeds.
 
 % ==================================================================
 \section{Results}
 \subsection{RL explorer}\label{sec:rl}
 \textbf{Data.} Validation: the tasks of three circuits held
-out of training (82 achievable, 42 infeasible); test: those plus three more held-out circuits, unseen 3-knob grids
+out of training (82 achievable, 42 infeasible); test: other specs on those circuits (none shared) plus three more held-out circuits, unseen 3-knob grids
 and two new topologies (411 achievable, 211 infeasible). Means over achievable tasks, 3 budgets and 10 seeds; a run
 that finds none counts budget\,+\,1; 95\% bootstrap intervals over tasks (the table).
 
@@ -177,7 +178,7 @@ Random & 27.4 [20.6, 34.9] & 72\% & 0.31 & 22.6 [19.9, 25.4] & 66\% & 0.25 & 19.
   the best baseline (the upper end on held-out circuits and new topologies), solves 9--17 points more tasks and maps the feasible set with
   about twice the IoU. Greedy learns nothing, so this gain belongs to the environment (offered candidates, a GP per
   constraint); RL's contribution is its margin over greedy.
-  \item PPO beats greedy in its setting: test $-1.11$ simulations [$-1.50$, $-0.76$] (seeds 0, 1: $-1.05$, $-1.17$), tight
+  \item PPO beats greedy in its setting: test $-1.11$ simulations [$-1.50$, $-0.76$] (the two seeds: $-1.05$, $-1.17$), tight
   $-2.73$ [$-3.75$, $-1.78$], IoU 0.84 [0.82, 0.85] vs 0.81 [0.80, 0.83]; validation: ahead in all four settings.
   \item DQN does not beat greedy: level on test, worse on validation in all four settings (tight validation
   specs: 19.5 vs 16.2, $+3.3$ [1.6, 5.2]). DQN seeds differ by 0.3--1.3 simulations, 0.01--0.04 in IoU.
@@ -185,7 +186,7 @@ Random & 27.4 [20.6, 34.9] & 72\% & 0.31 & 22.6 [19.9, 25.4] & 66\% & 0.25 & 19.
   GP level-set and $^{-0.93}$ for random, and greedy needs 0.3--0.5$\times$ random's at every number of free knobs. On m1's small sets
   IoU mostly measures finding; ground truth costs (levels per knob)$^{\text{knobs}}$.
   \item Mapping check (\texttt{diffpair\_rload}, 172 of 16,807 grid designs feasible, 600
-  simulations, 5 seeds; sweeps from an older simulator version): IoU 0.99 for greedy with no warm start, 0.99 for the three
+  simulations, 5 seeds; sweeps from an older simulator version): IoU 0.99 for greedy with no warm start, 0.99 for the
   PPO models (behind greedy early: 0.56--0.60 vs 0.67 at 200), 0.82--0.98 for the six DQN models, 0.31 for random pick, against 0.17 for GP level-set cold and 0.88 warm-started from GF\,180\,nm
   (ahead early: 0.83 vs 0.69 at 200).
   \item Infeasible specs: the map's highest chance separates achievable from infeasible test tasks (AUROC 0.83--0.96
@@ -307,7 +308,7 @@ intervals shown; grid resolution final. The LLM reads per-design tables and its 
   \item \textbf{Hungyu Lin}: Double DQN explorer (training, validation and test runs on \texttt{m1}), NSGA-II and
   MAP-Elites baselines and the evaluation metrics; review of the shared RL environment.
   \item \textbf{Samir Sarieddine}: PPO explorer on the shared RL environment: implementation, training in four candidate
-  settings with three seeds each, and its validation and test runs.
+  settings over several seeds, and its validation and test runs.
   \item \textbf{Taman Truong}: a third RL explorer, trained on the shared environment like the DQN and PPO models; still
   in training, so its results are not yet in this report.
   \item \textbf{Zhaoyan Jia}: could not be reached before submission to confirm his contributions, so this entry is
