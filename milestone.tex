@@ -141,7 +141,7 @@ report: per topology the compiler's verdict, screen and search; per target how c
 own notes from earlier rounds. It answers with a hand analysis, any new generic circuits and its decision; in
 exploration mode it may also request a compiler check and 6 single-point simulations.
 
-\textbf{The RL environment.} Each episode is one task: a circuit, its free knobs\footnote{\emph{Knob}: a design variable left free (a size, the supply or the input level). \emph{m1}: the Milestone 1 task set (Section~\ref{sec:goals}). \emph{Easy, medium, tight}: spec levels by the share of designs meeting them (Section~\ref{sec:goals}). \emph{First hit}: simulations until the first design that meets the spec. \emph{Candidate settings}: 32 candidates per knob by Sobol, uniform or half near the best design (\texttt{sobol32pk}, \texttt{random32pk}, \texttt{spread\_local32pk}), or 256 Sobol points (\texttt{sobol256}). Budgets: 10/25/50\% of the set, $\geq$12.}, a load and a specification,
+\textbf{The RL environment.} Each episode is one task: a circuit, its free knobs\footnote{\emph{Knob}: a design variable left free (a size, the supply or the input level). \emph{m1}, \emph{easy, medium, tight}: the task set and spec levels (Section~\ref{sec:rl}). \emph{First hit}: simulations until the first design that meets the spec. \emph{Candidate settings}: 32 candidates per knob by Sobol, uniform or half near the best design (\texttt{sobol32pk}, \texttt{random32pk}, \texttt{spread\_local32pk}), or 256 Sobol points (\texttt{sobol256}). Budgets: 10/25/50\% of the set, $\geq$12.}, a load and a specification,
 with a budget of simulations. It starts from 2 random designs per knob. At each step the environment offers 32
 candidate designs per knob, drawn by a candidate setting, and the agent picks one to simulate; the episode ends when
 the budget is spent. To score candidates, Gaussian processes (GPs) fitted on the designs simulated so far, one per
@@ -168,7 +168,10 @@ untuned); PPO's setting was chosen on validation, in the time available its test
 \subsection{RL explorer}\label{sec:rl}
 \textbf{What is measured.} These results score \emph{finding}: how fast an explorer reaches the first design that
 meets the specification, the goal it was trained for. Mapping the whole feasible region is a different task, checked
-once below and left to the final report. \textbf{Data.} Validation holds the specs of three circuits left out of training (82 achievable, 42 infeasible).
+once below and left to the final report. \textbf{Data.} Task set \texttt{m1}: 20 circuits on SkyWater 130\,nm, loads 30\,fF--1\,pF, four design sets each with
+every design simulated ($\approx$30k simulations): grids over 2, 3 or 4 knobs (64--256 designs) or 512 random designs
+with every knob free. Its 1,324 specs (702 training, 622 test) are labelled exactly by the share of designs meeting
+them: easy (median 19\%), medium (4\%), tight (0.4\%, often one design) or infeasible. Validation holds the specs of three circuits left out of training (82 achievable, 42 infeasible).
 Test has other specs on those circuits (none shared), plus three more held-out circuits, unseen 3-knob grids and two
 new topologies (411 achievable, 211 infeasible). Table~\ref{tab:rl} gives means over achievable specs, 3 budgets and
 10 seeds; a miss counts budget\,+\,1.
@@ -255,16 +258,16 @@ sizings, the stand-in search misses even on \texttt{miller2} itself (0 of 1,128)
 \section{Status against the proposal, and plan to the final report}\label{sec:goals}
 
 {\small\noindent
-\begin{tabularx}{\linewidth}{@{}L{0.25\linewidth}L{0.075\linewidth}Y@{}}
+\begin{tabularx}{\linewidth}{@{}L{0.28\linewidth}L{0.07\linewidth}Y@{}}
 \toprule
 Milestone goal (proposal) & Status & Where it stands \\
 \midrule
-Benchmark: environment and ground-truth sweeps for three topologies & exceeded & Task set \texttt{m1} (Milestone 1): 20 circuits (+2 new test topologies) on SkyWater 130\,nm, loads 30\,fF--1\,pF; per circuit four design sets, every design simulated ($\approx$30k simulations): a grid over 2, 3 or 4 free \emph{knobs} (design variables: sizes, supply, input level; 64--256 designs) or 512 random designs with every knob free; 1,324 specs (702 training, 622 test) labelled exactly, by the share of designs meeting them: easy (median 19\%), medium (4\%), tight (0.4\%, often one design), infeasible \\ \rowrule
-Reparameterized actions ($g_m/I_D$) and a mask of invalid designs & dropped & The design variables are sizes, supply and input level; whether a design biases is simulated and predicted (P(bias)), not masked by hand \\ \rowrule
-Baselines: random, Sobol, GP level-set, NSGA-II, MAP-Elites & done, re-scored & All five in one harness: same tasks, starting designs, 10 seeds and budgets; scored on finding and on IoU \\ \rowrule
-First PPO policy on one topology vs baselines & changed & Double DQN and PPO on one shared environment for all circuits (Section~\ref{sec:rl}); PPO is ahead of greedy, DQN is not \\ \rowrule
-Early cross-process transfer test & moved & GF\,180\,nm design sets not built yet; final report, with the warm-started GP \\ \rowrule
-Graph track (optional) & dropped & \phantomsection\label{sec:gnn}GNN built, then removed after leave-one-circuit-out tests on 15 circuits: ranking topologies by fewest devices needs 2.5 quick screens to a meeting circuit, the GNN 2.3; a GP on 32 of a circuit's own simulations predicts its metrics better \\
+Ground truth for three topologies & exceeded & 20 circuits and 2 new test topologies, every design simulated (Section~\ref{sec:rl}) \\ \rowrule
+Reparameterized actions, design mask & dropped & Biasing is simulated and predicted, not masked by hand \\ \rowrule
+Five baselines at equal budget & done & All five in one harness (Table~\ref{tab:rl}) \\ \rowrule
+First PPO policy on one topology & changed & DQN and PPO on one shared environment for all circuits; PPO ahead of greedy \\ \rowrule
+Early cross-process transfer & moved & To the final report (GF\,180\,nm design sets not built yet) \\ \rowrule
+Graph track (optional) & dropped & Built and removed: little gain over counting devices or a per-circuit GP\phantomsection\label{sec:gnn} \\
 \bottomrule
 \end{tabularx}
 
