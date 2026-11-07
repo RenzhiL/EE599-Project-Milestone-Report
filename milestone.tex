@@ -61,17 +61,30 @@
 Analog circuit design turns a combination of specifications (gain, bandwidth, power, \dots) into a
 circuit to be fabricated. The designer picks a \uline{topology}, the arrangement of components (transistors, resistors,
 capacitors), then \uline{sizes} it: device dimensions, bias and supply. Every candidate needs a circuit (SPICE)
-simulation, and for demanding specifications few sizings pass. Automation sizes a
-given topology toward given targets, or learns the pass/fail region of one circuit from scratch; which topology can
+simulation, and for demanding specifications few sizings pass.
+
+Prior work automates parts of this. RL methods treat sizing as control, with a policy that outputs sizes
+(AutoCkt~\cite{autockt}, PPAAS~\cite{ppaas}, and GCN-RL~\cite{gcnrl}, which transfers across processes through a
+circuit graph); MetaBO~\cite{metabo} instead learns the acquisition rule of Bayesian optimization, which design to
+evaluate next. Feasible-region estimation learns one circuit at a time, with classifiers~\cite{debernardinis,linli,zhang22}
+or GP level-set estimation~\cite{gotovos}, which samples near the predicted pass/fail boundary; MOJITO-R~\cite{mojitor}
+maps the trade-offs of a 3,528-topology library by evolutionary search. Graph neural networks~\cite{cktgnn,wusavidis}
+predict performance from circuit structure. LLMs write and repair circuit code~\cite{analogcoder,analogcoderpro},
+propose designs inside Bayesian optimization~\cite{adollm}, check designs against rules~\cite{analogxpert}, size
+circuits through the simulator~\cite{eesizer} or work as agent teams~\cite{analogsage}. Across this work, automation
+sizes a given topology toward given targets or learns one circuit's pass/fail region from scratch; which topology can
 meet a specification at all, and when to give up on one, is left to experience.
 
 We propose a design loop that splits this work (Section~\ref{sec:loop}). An LLM acts as the designer: it proposes
-topologies and decides whether to accept one, retry, or relax the specification when nothing can meet it. An RL
-explorer, trained once across many circuits, then chooses which sizings of a proposed topology to simulate, first to
-find a design that meets the specification and ultimately to map where it can be met, in as few simulations as
-possible. Because the process design kits (PDKs) that describe a manufacturing process are often confidential, a
-circuit compiler sits between the two, meant to keep the process kit from both models (for now it is a stand-in). A topology is accepted
-only on a simulated design that meets every target.
+topologies and decides whether to accept one, retry, or relax the specification when nothing can meet it, but never
+gives a size. An RL explorer, trained once across many circuits, then chooses which sizings of a proposed topology to
+simulate, first to find a design that meets the specification and ultimately to map where it can be met, in as few
+simulations as possible. Like MetaBO, it picks which offered design to simulate next rather than outputting sizes,
+building on a GP model of the feasible region as in level-set estimation, with one policy for all circuits. Because
+the process design kits (PDKs) that describe a manufacturing process are often confidential, a circuit compiler sits
+between the two, meant to keep the process kit from both models (for now it is a stand-in). A topology is accepted only
+on a simulated design that meets every target. A graph model of our own ranked topologies barely better than device
+count (2.3 against 2.5 quick screens to a working circuit, leave-one-circuit-out on 15 circuits) and was dropped.
 
 Milestone 1 revises this workflow and sets up the RL environment for it. Dense reference sets for mapping were too
 expensive to build: exact labels for one 5-knob circuit at one load already take 16,807 simulations, and the cost
@@ -87,18 +100,6 @@ about 12\% against the best fixed rule, mostly on the hardest specifications (pr
 component check on stored pools, Claude Sonnet 5 recovered 9 evaluation cases that a rule baseline
 wrongly abandoned, losing none.
 
-Prior RL work treats sizing as control, with a policy that outputs sizes (AutoCkt~\cite{autockt},
-PPAAS~\cite{ppaas}, and GCN-RL~\cite{gcnrl}, which transfers across processes through a circuit graph). Ours never
-outputs sizes: like MetaBO~\cite{metabo}, which learns the acquisition rule of Bayesian optimization, it picks which
-offered design to simulate next, one policy for all circuits. Feasible-region estimation learns one circuit at a time,
-with classifiers~\cite{debernardinis,linli,zhang22} or GP level-set estimation~\cite{gotovos}, which samples near the
-predicted boundary; MOJITO-R~\cite{mojitor} maps the trade-offs of a 3,528-topology library by evolutionary search. We
-use GP level-set as a baseline and add learning across circuits. Graph neural networks~\cite{cktgnn,wusavidis} predict
-performance from structure; ours ranked topologies barely better than device count (2.3 against 2.5 quick screens to a
-working circuit, leave-one-circuit-out on 15 circuits) and was dropped. LLMs write and repair circuit
-code~\cite{analogcoder,analogcoderpro}, propose designs inside Bayesian optimization~\cite{adollm}, check designs
-against rules~\cite{analogxpert}, size circuits through the simulator~\cite{eesizer} or work as agent
-teams~\cite{analogsage}; ours only picks topologies and when to give up.
 
 % ==================================================================
 \section{Methodology}\label{sec:loop}
