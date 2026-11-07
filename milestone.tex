@@ -273,19 +273,13 @@ own two-stage circuits and met two of the three specifications only that OTA mee
 \section{Plan to the final report}\label{sec:goals}
 Appendix~\ref{app:status} compares this status with the proposal's milestone goals. For the final report:
 \begin{itemize}
-  \item \uline{Map feasible regions, the project's goal.} Two harder grids, 6 knobs at 5 levels (15,625 designs each)
-  on circuits such as \texttt{ota5t\_v2} and \texttt{miller2}, about 31,000 simulations in all, roughly the cost of all
-  of \texttt{m1}; specifications about 1\% feasible, kept only where greedy stays well below IoU 0.99 at 600
-  simulations. A policy trained on \texttt{m1} with an IoU-gain reward, against first-hit and uncertainty-reduction
-  rewards, is compared with greedy, random pick, GP level-set and a probability-of-feasibility
-  BO baseline, every map from one shared GP estimator, by IoU at 200, 600 and 1,000 simulations.
-  \item \uline{Strengthen the finding result.} Five training seeds; results per budget and difficulty; an
-  uncertainty-based rule on the same candidates; a feature ablation for the tight-spec gain; the remaining test runs.
-  \item \uline{Run the loop end to end.} Build the compiler for circuits the LLM draws, connect the trained explorer,
-  and compare the LLM with stronger topology rankings than device count, including new topologies with a phase-margin target.
-  \item \uline{Extensions, not yet done but planned as the simulation budget allows:} transfer to GF\,180\,nm; stopping
-  on infeasible specifications; continuous sizing (already supported);
-  a local LLM; user constraints; TSMC 65\,nm.
+  \item \uline{Map feasible regions, the project's goal.} Move the evaluation from finding to mapping, on larger and
+  harder design sets than \texttt{m1}; the sets, reward and comparison are still to be decided within the simulation
+  budget.
+  \item \uline{Strengthen the finding result} with more training seeds and further controls.
+  \item \uline{Run the loop end to end:} complete the compiler and connect the trained explorer to the LLM designer.
+  \item \uline{Further directions, not yet done:} transfer to GF\,180\,nm, continuous sizing, stopping on infeasible
+  specifications, a local LLM, user constraints and TSMC 65\,nm.
 \end{itemize}
 \newpage
 
@@ -348,7 +342,7 @@ Reparameterized actions, design mask & dropped & The mask needed DC simulations 
 Five baselines at equal budget & done & All five in one harness (Table~\ref{tab:rl}); scored by first hit, which favours finding methods \\ \rowrule
 Metrics: IoU, fraction found, hypervolume & done & IoU in Table~\ref{tab:rl}; fraction found and hypervolume in Appendix~\ref{app:setup} \\ \rowrule
 First PPO policy on one topology & changed & DQN, PPO and three more learners on one shared environment; PPO ahead of greedy \\ \rowrule
-Learned feasible-region mapping & planned & Small-set IoU and one exploratory run so far; a committed two-grid experiment in Section~\ref{sec:goals} \\ \rowrule
+Learned feasible-region mapping & planned & Small-set IoU and one exploratory run so far; the main goal for the final report (Section~\ref{sec:goals}) \\ \rowrule
 Early cross-process transfer & moved & Not yet done: GF\,180\,nm design sets not built; planned for the final report \\ \rowrule
 Graph track (optional) & dropped & Built and removed: 2.3 against 2.5 quick screens for device count; a GP on 32 of a circuit's own simulations predicted it better\phantomsection\label{sec:gnn} \\
 \bottomrule
