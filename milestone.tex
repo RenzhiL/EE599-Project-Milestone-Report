@@ -67,18 +67,20 @@ Prior work automates parts of this. In RL sizing, AutoCkt~\cite{autockt} learns 
 specifications and generalizes to unseen targets, PPAAS~\cite{ppaas} conditions sizing on the goal across PVT corners,
 and GCN-RL~\cite{gcnrl} transfers across technology nodes and topologies through a circuit graph. MetaBO~\cite{metabo},
 our methodological starting point, learns the acquisition function of Bayesian optimization across tasks.
-Simulation-efficient performance modelling represents feasible performance spaces~\cite{debernardinis} or classifies
-performance with active learning~\cite{linli,zhang22}; in parameter space, the straddle rule~\cite{bryan} and level-set
-estimation~\cite{gotovos} sample near a predicted threshold, while active search~\cite{garnett} aims instead to discover
-members of a desired class, the same split as between our finding and mapping goals. MOJITO-R~\cite{mojitor} returns
-Pareto-optimal sized topologies from a 3,528-topology library by evolutionary search, and CktGNN~\cite{cktgnn} generates
+Performance modelling represents feasible performance spaces~\cite{debernardinis} or classifies
+performance by active learning~\cite{linli,zhang22}; in parameter space, the straddle rule~\cite{bryan} and level-set
+estimation~\cite{gotovos} sample near a predicted threshold, as mapping needs, while active search~\cite{garnett} seeks members
+of a class, as finding does.
+
+MOJITO-R~\cite{mojitor} searches a
+3,528-topology library for Pareto-optimal sized topologies, and CktGNN~\cite{cktgnn} generates
 and sizes topologies with a graph model; graph models also transfer performance prediction across
 topologies~\cite{wusavidis}. LLMs write and repair circuit code~\cite{analogcoder}, generate topologies from
 specifications and size them with Bayesian optimization~\cite{analogcoderpro}, propose designs inside Bayesian
 optimization~\cite{adollm}, synthesize topologies by selecting and connecting subcircuits~\cite{analogxpert}, size
 circuits through the simulator~\cite{eesizer} or work as agent teams~\cite{analogsage}. Topology generation and sizing
-are thus well studied; we add a learned acquisition policy shared across circuits, trained and compared in one
-budget-controlled environment, aimed at finding and eventually mapping feasible regions.
+are well studied; we add a learned acquisition policy shared across circuits, compared in one
+budget-controlled environment, for finding and later mapping feasible regions.
 
 We propose a design loop that splits this work (Section~\ref{sec:loop}). An LLM acts as the designer: it proposes
 topologies and decides whether to accept one, retry, or relax the specification when the search finds no passing design, but never
@@ -154,7 +156,7 @@ bonus rewards further hits, which need not mean wider coverage. Rewards for mapp
 Two references separate what the environment gives from what learning adds: \uline{greedy}, a fixed rule, picks the
 candidate with the highest chance (the probability-of-feasibility rule of constrained Bayesian optimization), and
 \uline{random pick} picks any offered candidate. The \uline{baselines} instead choose from the whole design set by
-their own objectives: the pass/fail boundary (GP level-set: the straddle rule~\cite{bryan,gotovos} adapted to multiple
+their own objectives: the pass/fail boundary (GP straddle: the straddle rule~\cite{bryan,gotovos} adapted to multiple
 constraints, $1.96\sigma - |\mu|$ on the target with the lowest predicted margin), the trade-off front (NSGA-II), coverage (MAP-Elites), or none (random,
 Sobol); scoring by first hit favours the methods built for finding. \uline{IoU}, the proposal's metric, compares a
 method's map of the design set with the exact feasible set: simulated designs count at their true result, the rest as
@@ -205,7 +207,7 @@ GRPO, Sobol & 6.3 [4.7, 8.1] & 98\% & 0.91 [0.89, 0.93] & -- & -- & -- \\
 Evolution strategy, Sobol & 7.3 [5.3, 9.5] & 97\% & 0.86 [0.84, 0.88] & -- & -- & -- \\
 \midrule
 \multicolumn{7}{@{}l}{Baselines (each fits its own map)} \\
-GP level-set & 19.6 [14.7, 24.7] & 85\% & 0.48 [0.41, 0.54] & 18.1 [15.8, 20.6] & 77\% & 0.39 [0.36, 0.42] \\
+GP straddle & 19.6 [14.7, 24.7] & 85\% & 0.48 [0.41, 0.54] & 18.1 [15.8, 20.6] & 77\% & 0.39 [0.36, 0.42] \\
 NSGA-II & 22.0 [16.6, 27.5] & 78\% & 0.39 [0.34, 0.45] & 17.6 [15.7, 19.6] & 74\% & 0.33 [0.31, 0.36] \\
 MAP-Elites & 25.5 [19.5, 31.9] & 73\% & 0.37 [0.32, 0.42] & 19.4 [17.3, 21.7] & 71\% & 0.31 [0.29, 0.33] \\
 Sobol & 29.8 [22.1, 38.6] & 69\% & 0.29 [0.24, 0.35] & 22.3 [19.6, 25.1] & 66\% & 0.26 [0.24, 0.28] \\
@@ -220,18 +222,18 @@ Most of the gain comes from the environment's acquisition rule. Picking the offe
 GP chance (greedy) has a penalized first-hit score 0.3--0.6 times that of the strongest baseline, though the
 baselines pursue goals that first hit does not reward. Random pick, given
 the very same candidates, does little better than random sampling, so the GP ranking, not the candidate generator, is
-what matters. IoU is not comparable across the two groups: the environment's methods share one map estimator and the
-baselines fit their own (random pick and the random baseline, which sample alike, reach 0.43 and 0.25), and at a 50\%
-budget half of each map is simulated truth. Learning has to improve on greedy.
+what matters. Across the two groups, IoU compares whole pipelines and cannot isolate sampling quality: the environment's
+methods share one map estimator and the baselines fit their own (random pick and the random baseline, which sample alike, reach 0.43 and 0.25), and at a 50\%
+budget half of each map is simulated truth.
 
-PPO does, modestly. On test it lowers the penalized first-hit score by 1.11, about 12\%, with an interval of
+PPO improves on greedy, modestly. On test it lowers the penalized first-hit score by 1.11, about 12\%, with an interval of
 [0.62, 1.64] when whole circuits are resampled ([0.76, 1.50] over tasks), and raises IoU by 0.023; the two training
 seeds give 1.05 and 1.17, so the result is preliminary. It is not only more solves: on runs both methods solve, PPO hits
 1.4 simulations sooner. Both score 1.1 on easy specifications, where two thirds of runs hit among the starting designs;
 PPO leads on medium (3.9 against 4.4) and tight ones (18.7 against 21.4), where a single design often meets the spec and
-every candidate's chance is close to zero. PPO is in effect a learned correction to the probability-of-feasibility
+every chance is near zero. PPO is in effect a learned correction to the probability-of-feasibility
 rule, as in MetaBO. DQN, which does not beat greedy overall, also gains slightly on tight specifications (20.5
-against 21.4), so whether PPO's gain comes from its uncertainty and distance features is untested. Held-out evidence is small: three circuits and two new topologies, one of which shows no gain.
+against 21.4), so whether PPO's gain comes from its uncertainty and distance features is untested. Held-out evidence is small: three circuits and two new topologies, one without a gain.
 
 DQN does not improve on greedy (level on test, behind on validation), possibly because its value estimates stay noisy
 under a sparse reward without tuning. Three further learners probe what PPO's gain depends on. GRPO, which replaces the
@@ -243,11 +245,10 @@ Without full test runs, these are only observations.
 
 Two results mark the limits of finding. In an exploratory mapping run (\texttt{diffpair\_rload}, 172 of 16,807
 designs feasible, on an older simulator version, ngspice 42), greedy and PPO both reach IoU 0.99 within 600
-simulations, PPO more slowly, while GP level-set reaches 0.17, comparable to the proposal pilot's GP baseline (0.37 after
-1,000); as in Table~\ref{tab:rl}, part of that gap may reflect the separate map estimators. In this exploratory experiment, PPO's finding advantage does not carry over to mapping, and a grid that greedy maps almost perfectly leaves no
-headroom: the mapping test needs harder sets. On infeasible specifications,
+simulations, PPO more slowly (0.56--0.60 against 0.67 at 200), while GP straddle reaches 0.17, comparable to the proposal pilot's GP baseline (0.37 after
+1,000); as in Table~\ref{tab:rl}, part of that gap may reflect the separate map estimators. PPO has not shown a mapping advantage on this circuit, which stays in the final benchmark. On infeasible specifications,
 learned methods show no consistent advantage over random pick in telling them from achievable ones (AUROC 0.77--0.96
-against 0.91, by the final chance that any design meets the specification).
+against 0.91, from the final chance that any design passes).
 
 \subsection{LLM designer: a component check (deliverable 1)}\label{sec:llm}
 The rule baseline tries catalogue circuits from the fewest devices up. On stored 512-design pools and the 258
@@ -279,12 +280,13 @@ own two-stage circuits and met two of three specifications only that OTA meets.
 % ==================================================================
 \section{Plan to the final report}\label{sec:goals}
 \begin{itemize}
-    \item Move the evaluation from finding to mapping: compare PPO, greedy and GP level-set, scored with one
+    \item Move the evaluation from finding to mapping: compare PPO, greedy and GP straddle, scored with one
   shared map estimator, on a few affordable fully simulated reference sets spanning different feasible-region structures
   and difficulties, reporting IoU against simulation count. Set sizes and the reward (uncertainty reduction or
   IoU gain) depend on resources.
   \item Strengthen the finding result with more training seeds and further controls.
-  \item Complete the compiler and connect the trained explorer to the LLM designer.
+  \item Complete the compiler and connect the trained explorer to the LLM designer, with phase margin among the
+  final experiments' acceptance targets.
   \item Other pending items: transfer to GF\,180\,nm, re-measuring the bias-mask saving, continuous sizing, stopping on infeasible
   specifications, a local LLM, user constraints and TSMC 65\,nm.
 
@@ -319,7 +321,7 @@ own two-stage circuits and met two of three specifications only that OTA meets.
 \bibitem{debernardinis} F.~De Bernardinis, M.~I.~Jordan, A.~Sangiovanni-Vincentelli, ``Support vector machines for analog circuit performance representation,'' DAC, 2003.
 \bibitem{linli} H.~Lin, P.~Li, ``Circuit performance classification with active learning guided sampling for support vector machines,'' IEEE TCAD 34(9), 2015.
 \bibitem{zhang22} L.~Zhang et al., ``Bayesian deep active learning for analog circuit performance classification,'' ISCAS, 2022.
-\bibitem{bryan} B.~Bryan, J.~Schneider, R.~C.~Nichol, C.~J.~Miller, C.~R.~Genovese, L.~Wasserman, ``Active learning for identifying function threshold boundaries,'' NeurIPS, 2005.
+\bibitem{bryan} B.~Bryan, R.~C.~Nichol, C.~R.~Genovese, J.~Schneider, C.~J.~Miller, L.~Wasserman, ``Active learning for identifying function threshold boundaries,'' NeurIPS, 2005.
 \bibitem{gotovos} A.~Gotovos, N.~Casati, G.~Hitz, A.~Krause, ``Active learning for level set estimation,'' IJCAI, 2013.
 \bibitem{garnett} R.~Garnett, Y.~Krishnamurthy, X.~Xiong, J.~Schneider, R.~Mann, ``Bayesian optimal active search and surveying,'' ICML, 2012.
 \bibitem{mojitor} T.~McConaghy et al., ``Variation-aware structural synthesis of analog circuits via hierarchical building blocks and structural homotopy'' (MOJITO-R), IEEE TCAD, 2009.
@@ -438,7 +440,7 @@ Random pick, spread & 2.2 & 10.4 & 47.8 & 79\% & 33\% & 0.33 & 0.85 \\
 DQN, spread & 1.1 & 4.4 & 20.5 & 96\% & 81\% & 0.79 & 1.04 \\
 PPO, spread & 1.1 & 3.9 & 18.7 & 97\% & 84\% & 0.83 & 1.06 \\
 PPO, annealed & 1.1 & 3.8 & 18.9 & 97\% & 84\% & 0.83 & -- \\
-GP level-set & 3.3 & 12.7 & 36.0 & 83\% & 58\% & 0.59 & 0.87 \\
+GP straddle & 3.3 & 12.7 & 36.0 & 83\% & 58\% & 0.59 & 0.87 \\
 NSGA-II & 2.7 & 10.4 & 37.9 & 81\% & 51\% & 0.51 & 0.91 \\
 MAP-Elites & 3.5 & 13.1 & 39.2 & 75\% & 50\% & 0.47 & 0.87 \\
 Sobol & 1.9 & 11.5 & 51.2 & 78\% & 26\% & 0.29 & 0.81 \\
@@ -454,7 +456,7 @@ the starting designs at the 10, 25 and 50\% budgets.
 numbers), receives the same simulator outputs including bias failures, and samples the same finite design set.
 Margins are normalized per constraint, $(v - t)/n$ or $\log_{10}(v/t)/n$ with a fixed scale $n$ per metric and the sign
 reversed for upper-bound constraints; bias
-checks enter GP level-set as constraints. IoU is computed on achievable specifications only (non-empty feasible sets),
+checks enter GP straddle as constraints. IoU is computed on achievable specifications only (non-empty feasible sets),
 from each method's own map. Infeasibility AUROC uses each method's final chance that any design meets the
 specification, at the task's largest budget, with achievable specifications as the positive class.
 
@@ -463,7 +465,7 @@ Simulator: ngspice 41 (pinned; stored results are checked against it, except the
 27\,$^\circ$C. LLM designers: \texttt{claude-haiku-4-5-20251001} and \texttt{claude-sonnet-5}, provider-default
 sampling (Sonnet refuses a temperature setting, so both run at the default), at most 16,000 output tokens per reply;
 replies are cached, so reruns repeat exactly (this shows repeatability of these runs, not of fresh generations). Baseline GPs: one per constraint, constant\,$\times$\,RBF plus white-noise
-kernel, hyperparameters refitted every 16 simulations; straddle acquisition $1.96\sigma - |\mu|$ for GP level-set.
+kernel, hyperparameters refitted every 16 simulations; straddle acquisition $1.96\sigma - |\mu|$ for GP straddle.
 
 \section{Changes in the method since the proposal}\label{app:changes}
 {\small\noindent
