@@ -87,20 +87,20 @@ need not enumerate, but its benchmark must. PPO-based explorers lower the first-
 starting designs, misses penalized) by about 12\% against the best fixed rule; as the designer, Claude Sonnet 5 met 9
 specs a rule baseline wrongly gave up on and lost none.
 
-\uline{RL for circuit sizing.} Prior RL work treats sizing as control: the policy outputs sizes and is rewarded for
+Prior RL work treats sizing as control: the policy outputs sizes and is rewarded for
 meeting a target (AutoCkt~\cite{autockt}, on targets it never saw; PPAAS~\cite{ppaas}, also over 45 manufacturing
 variations; GCN-RL~\cite{gcnrl}, transferring across processes and two topologies through a circuit graph). Our policy
 never outputs sizes: like MetaBO~\cite{metabo}, which learns the acquisition rule of Bayesian optimization, it picks
 which offered design to simulate next, one policy for all circuits.
 
-\uline{Mapping where a circuit works.} Other work estimates the whole region of sizings that pass, one circuit at a
+Other work estimates the whole region of sizings that pass, one circuit at a
 time: classifiers (SVMs~\cite{debernardinis,linli}, Bayesian neural networks~\cite{zhang22}) and GP level-set
 estimation~\cite{gotovos}, which samples near the predicted pass/fail boundary; MOJITO-R~\cite{mojitor} maps the
 trade-offs of a 3,528-topology library by evolutionary search. We use GP level-set as a baseline and GPs inside our
 environment; we add learning, across circuits, which design to simulate next. Graph neural networks~\cite{cktgnn,wusavidis}
 predict performance from structure and sizes; ours gained little over simpler models and was dropped.
 
-\uline{LLMs for analog design.} LLMs write circuits as code and repair them from simulation errors
+For analog design, LLMs write circuits as code and repair them from simulation errors
 (AnalogCoder~\cite{analogcoder,analogcoderpro}), propose designs inside Bayesian optimization (ADO-LLM~\cite{adollm}),
 check designs against rules (AnalogXpert~\cite{analogxpert}), size circuits through the simulator
 (EEsizer~\cite{eesizer}) or work as agent teams (AnalogSAGE~\cite{analogsage}). Our LLM only chooses topologies and
@@ -109,7 +109,6 @@ sets is known.
 
 % ==================================================================
 \section{Methodology}\label{sec:loop}
-\uline{The design loop} (deliverable 1).
 \begin{center}
 \begin{tikzpicture}[x=38mm, y=12mm]
   \node[iobox]  (spec)   at (0, 0) {\textbf{1 Spec}: targets, load, process, user-fixed parts};
@@ -129,7 +128,7 @@ sets is known.
 {\footnotesize Built: 1, 2, 4, 6, 7 on stored or live designs; 3 is a stand-in for now; 5 is trained, not yet connected to the loop.}
 \end{center}
 \vspace{-4pt}
-The loop works in rounds. Given a specification, the LLM designer proposes $N$ topologies but no sizes; a new topology is written as a \uline{generic circuit} (devices, connections, roles, required operating
+The design loop (deliverable 1) works in rounds. Given a specification, the LLM designer proposes $N$ topologies but no sizes; a new topology is written as a \uline{generic circuit} (devices, connections, roles, required operating
 regions). The circuit compiler, a fixed program, checks each proposal and writes it for
 one process, so a new circuit runs like a catalogue one. A quick screen of 128 random sizings tells whether it can be
 biased at all, and the RL explorer then searches its sizings. The round report goes back to the LLM, which accepts a
@@ -137,12 +136,12 @@ topology, starts another round, or gives up. The simulator is the only judge: a 
 simulated design that meets every target, and ``not found'' after $R$ rounds (default $N = R = 3$) does not prove a
 specification impossible. A \uline{rule baseline} decides the same way, trying catalogue circuits, fewest devices first.
 
-\uline{What the LLM sees.} Each round: the specification under a neutral label, public process numbers for hand analysis, the 20-circuit catalogue, a table of design moves, the round
+Each round, the LLM sees the specification under a neutral label, public process numbers for hand analysis, the 20-circuit catalogue, a table of design moves, the round
 report (per topology the compiler's verdict, screen and search; per target how close the best designs came) and its
 notes from earlier rounds. It answers with a hand analysis, any new generic circuits and its decision; in exploration
 mode it may also request a compiler check and 6 single-point simulations.
 
-\uline{The RL environment} (deliverable 2). Each episode is one task: a circuit, its free knobs\footnote{\uline{Knob}: a design variable left free (a size, the supply or the input level). \uline{m1}, \uline{easy, medium, tight}: the task set and spec levels (Section~\ref{sec:rl}). \uline{First hit}: Table~\ref{tab:rl}. \uline{Candidate settings}: 32 candidates per knob by Sobol, uniform or half near the best design (\texttt{sobol32pk}, \texttt{random32pk}, \texttt{spread\_local32pk}), or 256 Sobol points (\texttt{sobol256}). Budgets: 10/25/50\% of the set, $\geq$12.}, a load and a specification,
+In the RL environment (deliverable 2), each episode is one task: a circuit, its free knobs\footnote{\uline{Knob}: a design variable left free (a size, the supply or the input level). \uline{m1}, \uline{easy, medium, tight}: the task set and spec levels (Section~\ref{sec:rl}). \uline{First hit}: Table~\ref{tab:rl}. \uline{Candidate settings}: 32 candidates per knob by Sobol, uniform or half near the best design (\texttt{sobol32pk}, \texttt{random32pk}, \texttt{spread\_local32pk}), or 256 Sobol points (\texttt{sobol256}). Budgets: 10/25/50\% of the set, $\geq$12.}, a load and a specification,
 with a budget of simulations. It starts from 2 random designs per knob. At each step the environment offers 32
 candidate designs per knob, drawn by a candidate setting, and the agent picks one to simulate; the episode ends when
 the budget is spent. To score candidates, Gaussian processes (GPs) fitted on the designs simulated so far, one per
@@ -161,7 +160,7 @@ their own objectives: the pass/fail boundary (GP level-set: straddle sampling, $
 the lowest predicted margin~\cite{gotovos}), the trade-off front (NSGA-II), coverage (MAP-Elites), or none (random,
 Sobol); scoring by first hit favours the methods built for finding. \uline{IoU}, the proposal's metric, compares a
 method's map of the design set with the exact feasible set: simulated designs count at their true result, the rest as
-feasible where the method's GP gives a chance above 0.5. \uline{Matched budgets.} Every method gets the same online
+feasible where the method's GP gives a chance above 0.5. Budgets are matched: every method gets the same online
 simulation budget per task, starting designs included (failed simulations count, no design is simulated twice), and
 the same 10 seeds. Learned explorers also train, untuned, for 200k environment steps on training tasks (DQN 6.9k, PPO
 3.0k parameters, one model per candidate setting and training seed), which fixed rules do not need; settings were
@@ -170,15 +169,15 @@ chosen on validation. As time allowed, PPO's test runs cover 2 training seeds an
 % ==================================================================
 \section{Results}
 \subsection{RL explorer comparisons (deliverable 3)}\label{sec:rl}
-\uline{What is measured.} These results score \uline{finding}: how fast an explorer reaches the first design that
+These results score \uline{finding}: how fast an explorer reaches the first design that
 meets the specification, the goal it was trained for. Mapping the whole feasible region is a different task, checked
-once below; its full evaluation is an extension, subject to the simulation budget (Section~\ref{sec:goals}). \uline{Environment checks} (deliverable 2). All 654,897 stored evaluation runs used exactly their budget, and each
+once below; its full evaluation is an extension, subject to the simulation budget (Section~\ref{sec:goals}). The environment itself (deliverable 2) is checked: all 654,897 stored evaluation runs used exactly their budget, and each
 first hit lies in its range, scoring picks\,+\,1 exactly when no design met the spec. Automated tests (25, passing)
 check that steps equal the budget, no design is simulated twice, a seed fixes the starting designs and picks, the
 environment runs with the true labels removed, the policy cannot reach the simulator or results, invalid picks are
 refused, metrics never read designs beyond the scored prefix, and cached tasks refresh when their source changes. A
 separate random sample of 32--64 designs per set agrees with the sets' feasible shares (6.2\% vs 6.4\% on average) and
-meets 8 of the 449 specs labelled infeasible: ``infeasible'' holds within the set only. \uline{Data.} Task set \texttt{m1}, SkyWater 130\,nm, loads 30\,fF--1\,pF: 14 training, 3 validation and 3 held-out
+meets 8 of the 449 specs labelled infeasible: ``infeasible'' holds within the set only. Task set \texttt{m1} (SkyWater 130\,nm, loads 30\,fF--1\,pF) has 14 training, 3 validation and 3 held-out
 catalogue circuits plus 2 new topologies, with fully simulated design sets: grids over 2, 3 or 4 knobs (64--256 designs) or 512 random designs with every knob free. Each of 1,324
 specs is labelled by the share of its set meeting it: easy (median 19\%), medium (4\%), tight (0.4\%, often one
 design) or infeasible (none in the set; beyond the set, unknown). Training uses 578 specs of the training circuits,
@@ -243,11 +242,11 @@ Random & 27.4 [20.0, 34.7] & 72\% & 0.31 [0.26, 0.36] & 22.6 [19.9, 25.2] & 66\%
 \end{itemize}
 
 \subsection{LLM designer: a component check (deliverable 1)}\label{sec:llm}
-\uline{Rule baseline.} On stored 512-design pools (screen 128, search 200 per topology), over the 258 training
-specs set on them and 10 seeds, the rules accept 76\% of specs and are never wrong when they accept. They wrongly
+On stored 512-design pools (screen 128, search 200 per topology), over the 258 training
+specs set on them and 10 seeds, the baseline's rules accept 76\% of specs and are never wrong when they accept. They wrongly
 report ``not found'' on 13.6\% of specs achievable in the pool, mostly because the meeting circuit lies beyond the first nine they
-try, and need a median 384 simulations to accept, 2,952 to give up. \uline{LLM vs rules.} Same stored checks, catalogue
-circuits only, 50 specs per seed sampled by difficulty, shown under neutral labels:
+try, and need a median 384 simulations to accept, 2,952 to give up. The LLM designers face the same stored checks, catalogue
+circuits only and 50 specs per seed, sampled by difficulty and shown under neutral labels:
 
 \begin{center}\small
 \begin{tabular}{lcccc@{\hspace{14pt}}cccc}
@@ -269,8 +268,8 @@ counts are not independent and we make no significance claim. No designer accept
 simulator gate requires. Limits: the fewest-devices order
 is a weak baseline and tries at most nine circuits ($R \times N$); every accept is at the nominal corner; and the catalogue lists each circuit's metrics,
 which may make this partly informed retrieval. Our reading: Sonnet's hand analysis puts a circuit that can meet the
-spec among its first nine tries, which the fewest-devices order reaches too late. \uline{New topologies} (a demonstration, with
-a stand-in compiler). With \texttt{miller2} removed from the catalogue, Sonnet met two of the three specs only it
+spec among its first nine tries, which the fewest-devices order reaches too late. A demonstration with a stand-in
+compiler tests new topologies: with \texttt{miller2} removed from the catalogue, Sonnet met two of the three specs only it
 meets, using two-stage circuits it drew. The third, met by 1 in 512 \texttt{miller2}
 sizings, the stand-in search misses even on \texttt{miller2} itself.
 
