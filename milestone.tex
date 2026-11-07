@@ -71,12 +71,14 @@ possible. Because the process design kits (PDKs) that describe a manufacturing p
 circuit compiler sits between the two, so neither model is trained on process-specific data. A topology is accepted
 only on a simulated design that meets every target.
 
-Milestone 1 finalizes this workflow and builds one RL environment and evaluation harness in which every explorer is
-trained and scored the same way, on 20 amplifier circuits whose feasible sets are known exactly from grid sweeps, with
-a first comparison of models to pursue (Section~\ref{sec:goals}). So far the RL explorer and the LLM
-designer are trained and tested separately; joining them is the final report's work. PPO-based explorers need fewer
-simulations than a fixed rule to find a design (mapping comes next); of the two Claude models tested as the designer,
-Haiku 4.5 and Sonnet 5, Sonnet gives up wrongly less often than a rule baseline.
+Milestone 1 has three deliverables. (1) \emph{Workflow specification and component checks}: the topology proposal,
+screening, sizing, feedback and acceptance process is defined (Section~\ref{sec:loop}) and its implemented components
+are demonstrated separately; the RL explorer and LLM designer are not yet joined. (2) \emph{A working
+benchmark environment}: 20 amplifier circuits whose feasible sets are known exactly from grid sweeps, with simulation
+access, observations, rewards and evaluation metrics shared by every explorer. (3) \emph{Controlled explorer
+comparisons}: learned policies against fixed acquisition rules at explicitly matched budgets (Section~\ref{sec:rl}).
+PPO-based explorers find a design in fewer simulations than the best fixed rule (mapping comes next); as the
+designer, Claude Sonnet 5 gives up wrongly less often than a rule baseline, Haiku 4.5 not significantly.
 
 \textbf{RL for circuit sizing.} Prior RL work treats sizing as control: the policy outputs sizes and is rewarded
 for meeting a target. AutoCkt~\cite{autockt} trains PPO on many sampled targets and reaches targets it never
@@ -105,7 +107,7 @@ up, scored against a rule baseline on specifications whose achievability is know
 
 % ==================================================================
 \section{Methodology}\label{sec:loop}
-\textbf{The design loop.}
+\textbf{The design loop} (deliverable 1).
 \begin{center}
 \begin{tikzpicture}[x=38mm, y=12mm]
   \node[iobox]  (spec)   at (0, 0) {\textbf{1 Spec}: targets, load, process, user-fixed parts};
@@ -138,7 +140,7 @@ report (per topology the compiler's verdict, screen and search; per target how c
 notes from earlier rounds. It answers with a hand analysis, any new generic circuits and its decision; in exploration
 mode it may also request a compiler check and 6 single-point simulations.
 
-\textbf{The RL environment.} Each episode is one task: a circuit, its free knobs\footnote{\emph{Knob}: a design variable left free (a size, the supply or the input level). \emph{m1}, \emph{easy, medium, tight}: the task set and spec levels (Section~\ref{sec:rl}). \emph{First hit}: simulations until the first design that meets the spec. \emph{Candidate settings}: 32 candidates per knob by Sobol, uniform or half near the best design (\texttt{sobol32pk}, \texttt{random32pk}, \texttt{spread\_local32pk}), or 256 Sobol points (\texttt{sobol256}). Budgets: 10/25/50\% of the set, $\geq$12.}, a load and a specification,
+\textbf{The RL environment} (deliverable 2). Each episode is one task: a circuit, its free knobs\footnote{\emph{Knob}: a design variable left free (a size, the supply or the input level). \emph{m1}, \emph{easy, medium, tight}: the task set and spec levels (Section~\ref{sec:rl}). \emph{First hit}: simulations until the first design that meets the spec. \emph{Candidate settings}: 32 candidates per knob by Sobol, uniform or half near the best design (\texttt{sobol32pk}, \texttt{random32pk}, \texttt{spread\_local32pk}), or 256 Sobol points (\texttt{sobol256}). Budgets: 10/25/50\% of the set, $\geq$12.}, a load and a specification,
 with a budget of simulations. It starts from 2 random designs per knob. At each step the environment offers 32
 candidate designs per knob, drawn by a candidate setting, and the agent picks one to simulate; the episode ends when
 the budget is spent. To score candidates, Gaussian processes (GPs) fitted on the designs simulated so far, one per
@@ -162,7 +164,7 @@ untuned); PPO's setting was chosen on validation; time allowed 2 test seeds.
 
 % ==================================================================
 \section{Results}
-\subsection{RL explorer}\label{sec:rl}
+\subsection{RL explorer comparisons (deliverable 3)}\label{sec:rl}
 \textbf{What is measured.} These results score \emph{finding}: how fast an explorer reaches the first design that
 meets the specification, the goal it was trained for. Mapping the whole feasible region is a different task, checked
 once below and left to the final report. \textbf{Data.} Task set \texttt{m1}: 20 circuits on SkyWater 130\,nm, loads 30\,fF--1\,pF, four design sets each with
@@ -170,8 +172,8 @@ every design simulated ($\approx$30k simulations): grids over 2, 3 or 4 knobs (6
 with every knob free. Its 1,324 specs (702 training, 622 test) are labelled exactly by the share of designs meeting
 them: easy (median 19\%), medium (4\%), tight (0.4\%, often one design) or infeasible. Validation holds the specs of three circuits left out of training (82 achievable, 42 infeasible).
 Test has other specs on those circuits (none shared), plus three more held-out circuits, unseen 3-knob grids and two
-new topologies (411 achievable, 211 infeasible). Table~\ref{tab:rl} gives means over achievable specs, 3 budgets and
-10 seeds; a miss counts budget\,+\,1.
+new topologies (411 achievable, 211 infeasible). Every method gets the same 3 budgets and 10
+seeds; Table~\ref{tab:rl} gives means over achievable specs; a miss counts budget\,+\,1.
 
 \begin{table}[!t]\centering\footnotesize
 \begin{tabular}{lccc@{\hspace{10pt}}ccc}
@@ -231,7 +233,7 @@ Random & 27.4 [20.0, 34.7] & 72\% & 0.31 [0.26, 0.36] & 22.6 [19.9, 25.2] & 66\%
   carries the signals (budget left, designs found, highest chance), but the finding reward does not ask for this.
 \end{itemize}
 
-\subsection{LLM designer}\label{sec:llm}
+\subsection{LLM designer: a component check (deliverable 1)}\label{sec:llm}
 \textbf{Rule baseline.} On stored 512-design pools (screen 128, search 200 per topology), over the 258 training
 specs set on them and 10 seeds, the rules accept 76\% of specs and are never wrong when they accept. They wrongly
 report ``not found'' on 13.6\% of achievable specs, mostly because the meeting circuit lies beyond the first nine they
