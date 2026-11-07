@@ -268,9 +268,10 @@ Appendix~\ref{app:status} compares this status with the proposal's milestone goa
   uncertainty and distance features, finish the remaining test runs, and confirm the gain on newly simulated designs.
   \item \uline{Run the loop end to end.} Build the compiler for circuits the LLM draws, connect the trained explorer,
   and compare the LLM with stronger topology rankings than device count, including new topologies with a phase-margin target.
-  \item \uline{Extensions, as the simulation budget allows:} mapping on larger grids, with rewards that let the
-  explorer judge a specification's difficulty and stop on infeasible ones; transfer to GF\,180\,nm; a local LLM; user
-  constraints; TSMC 65\,nm.
+  \item \uline{Extensions, as the simulation budget allows:} continuous sizing, with candidates drawn fresh and
+  simulated instead of looked up in stored sets (the environment already supports this), so refinement is no longer
+  limited by grid spacing; mapping on larger grids, with rewards that let the explorer judge a specification's
+  difficulty and stop on infeasible ones; transfer to GF\,180\,nm; a local LLM; user constraints; TSMC 65\,nm.
 \end{itemize}
 \newpage
 
