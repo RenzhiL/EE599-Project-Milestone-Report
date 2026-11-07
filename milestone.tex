@@ -209,6 +209,10 @@ Random & 27.4 [20.0, 34.7] & 72\% & 0.31 [0.26, 0.36] & 22.6 [19.9, 25.2] & 66\%
   \item \textbf{DQN does not.} It is level with greedy on test and behind on validation in all four settings; on tight
   validation specs it needs 19.5 simulations to greedy's 16.2 ($+3.3$ [1.6, 5.2]). Its seeds differ by 0.3--1.3
   simulations and 0.01--0.04 in IoU.
+  \item \textbf{Other learners (validation only, not yet run on test).} PPO with \emph{annealed} candidates (spread at
+  first, then more and more near the best designs) needs 0.75 fewer simulations [0.22, 1.31] than greedy with the same
+  candidates, 1.75 fewer on tight specs; the annealed candidates alone do not help greedy. GRPO (PPO without a value
+  network) matches PPO; an evolution strategy scored on the first hit trails greedy (+0.68) and finds fewer designs after it.
   \item \textbf{Scaling.} Simulations to the first hit grow as (feasible share)$^{-0.63}$ for greedy and DQN,
   $^{-0.75}$ for GP level-set and $^{-0.93}$ for random; greedy needs 0.3--0.5$\times$ random's at every number of
   knobs. On m1's small sets IoU mostly measures finding; exact ground truth costs (levels per knob)$^{\text{knobs}}$.
@@ -275,7 +279,7 @@ Graph track (optional) & dropped & Built and removed: little gain over counting 
 
 \textbf{Plan to the final report.}
 \begin{itemize}
-  \item \textbf{Required, RL:} PPO is carried forward ($\le$8 tuning trials, chosen on validation): its margin over greedy on tight
+  \item \textbf{Required, RL:} PPO is carried forward ($\le$8 tuning trials, chosen on validation; annealed candidates scored on test): its margin over greedy on tight
   stored specs (paired 95\% interval below zero) must hold on fresh designs and on mapping. Mapping as the headline:
   IoU on large grids and its sensitivity to grid resolution; the reward ablation (finding, uncertainty drop, find
   then map) for an explorer that judges a spec's difficulty and sets its budget; GF\,180\,nm transfer vs a warm-started GP.
@@ -325,8 +329,8 @@ Graph track (optional) & dropped & Built and removed: little gain over counting 
   MAP-Elites baselines and the evaluation metrics; review of the shared RL environment.
   \item \textbf{Samir Sarieddine}: PPO explorer on the shared RL environment: implementation, training in four candidate
   settings over several seeds, and its validation and test runs.
-  \item \textbf{Taman Truong}: a third RL explorer, trained on the shared environment like the DQN and PPO models; still
-  in training, so its results are not yet in this report.
+  \item \textbf{Taman Truong}: three further explorers on the shared RL environment (GRPO, an evolution strategy, and
+  PPO with the annealed candidate setting he added), trained over several seeds, and their validation runs.
   \item \textbf{Zhaoyan Jia}: could not be reached before submission to confirm his contributions, so this entry is
   left empty; it will be completed in the final report.
 \end{itemize}
