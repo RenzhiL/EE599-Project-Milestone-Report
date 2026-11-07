@@ -73,13 +73,13 @@ possible. Because the process design kits (PDKs) that describe a manufacturing p
 circuit compiler sits between the two, meant to keep the process kit from both models (for now it is a stand-in). A topology is accepted
 only on a simulated design that meets every target.
 
-Milestone 1 revises this workflow and sets up the RL environment for it. Most of the proposal's experimental
-objectives (mapping feasible regions, transfer to GF\,180\,nm, the bias-mask saving, the full metric set) need far more
-simulation than the milestone allowed: exact labels for one 5-knob circuit at one load already take 16,807
-simulations, and the cost grows as $L^k$ for $k$ knobs at $L$ levels. The milestone therefore delivers three things.
+Milestone 1 revises this workflow and sets up the RL environment for it. Dense reference sets for mapping were too
+expensive to build: exact labels for one 5-knob circuit at one load already take 16,807 simulations, and the cost
+grows as $L^k$ for $k$ knobs at $L$ levels. Transfer to GF\,180\,nm and validation of the bias-mask saving could not be
+completed in the available implementation and simulation time. The milestone therefore delivers three things.
 First, the workflow is specified from proposal through screening, sizing, feedback and acceptance, and its components
 are checked one at a time (the compiler is a stand-in and the explorer is not yet in the loop). Second, a benchmark
-environment on 20 catalogue circuits and 2 new topologies whose small design sets (64--512 designs) we simulated in
+environment with a shared training, validation and test framework on 20 catalogue circuits and 2 new topologies whose small design sets (64--512 designs) we simulated in
 full, so achievability within each set is known. Third, a controlled comparison of learned explorers with fixed
 acquisition rules at equal simulation budgets, scored on \uline{finding} a passing design, which such sets score
 exactly; mapping and transfer remain for the final report. A PPO explorer lowers the penalized first-hit score by
@@ -123,8 +123,8 @@ teams~\cite{analogsage}; ours only picks topologies and when to give up.
 \vspace{-4pt}
 The design loop (deliverable 1) works in rounds. Given a specification, the LLM designer proposes $N$ topologies but no sizes; a new topology is written as a \uline{generic circuit} (devices, connections, roles, required operating
 regions). The circuit compiler, a fixed program, checks each proposal and writes it for
-one process, so a new circuit runs like a catalogue one. A quick screen of 128 random sizings tells whether it can be
-biased at all, and the RL explorer then searches its sizings. The round report goes back to the LLM, which accepts a
+one process, so a new circuit runs like a catalogue one. A quick screen checks whether a valid bias is found within
+128 random sizings, and the RL explorer then searches its sizings. The round report goes back to the LLM, which accepts a
 topology, starts another round, or gives up. The simulator is the only judge: a topology is accepted only on a
 simulated design that meets every target, and ``not found'' after $R$ rounds (default $N = R = 3$) does not prove a
 specification impossible. A \uline{rule baseline} decides the same way, trying catalogue circuits, fewest devices first.
@@ -169,8 +169,8 @@ come 32 per knob, as Sobol points (\uline{Sobol}) or half near the best design (
 % ==================================================================
 \section{Results}
 \subsection{RL explorer comparisons (deliverable 3)}\label{sec:rl}
-Before comparing explorers we checked the environment (Appendix~\ref{app:setup}): all 654,897 stored runs kept their budget with consistent scores, 25 automated tests pass, and an independent off-set sample reproduces each
-set's feasible share (6.2\% vs 6.4\%) while meeting 8 of the 449 specifications labelled
+Before comparing explorers we checked the environment (Appendix~\ref{app:setup}): all 654,897 stored runs kept their budget with consistent scores, 25 automated tests pass, and an independent off-set sample gives an aggregate
+feasible share in line with the sets' (6.2\% vs 6.4\%) while meeting 8 of the 449 specifications labelled
 infeasible, so ``infeasible'' holds only within the set.
 
 The task set \texttt{m1} (SkyWater 130\,nm, loads 30\,fF--1\,pF) covers 14 training, 3 validation and 3 held-out
@@ -189,6 +189,7 @@ seeds.
 \cmidrule(lr){2-4}\cmidrule(lr){5-7}
 Method & First hit & Solved & IoU & First hit & Solved & IoU \\
 \midrule
+\multicolumn{7}{@{}l}{Environment methods (one shared map estimator)} \\
 Greedy, spread & 6.4 [4.8, 8.2] & 98\% & 0.91 [0.89, 0.93] & 9.2 [7.6, 10.9] & 92\% & 0.81 [0.80, 0.83] \\
 Greedy, Sobol & 6.6 [4.9, 8.5] & 98\% & 0.90 [0.88, 0.92] & 9.3 [7.6, 11.0] & 92\% & 0.81 [0.80, 0.83] \\
 Random pick, spread & 25.1 [18.9, 32.3] & 75\% & 0.50 [0.46, 0.53] & 20.8 [18.3, 23.2] & 68\% & 0.43 [0.42, 0.45] \\
@@ -198,6 +199,8 @@ PPO, spread & 5.9 [4.4, 7.5] & 98\% & 0.91 [0.89, 0.93] & 8.1 [6.7, 9.7] & 94\% 
 PPO, annealed & 6.0 [4.5, 7.7] & 98\% & 0.91 [0.89, 0.93] & 8.2 [6.7, 9.9] & 94\% & 0.84 [0.82, 0.85] \\
 GRPO, Sobol & 6.3 [4.7, 8.1] & 98\% & 0.91 [0.89, 0.93] & -- & -- & -- \\
 Evolution strategy, Sobol & 7.3 [5.3, 9.5] & 97\% & 0.86 [0.84, 0.88] & -- & -- & -- \\
+\midrule
+\multicolumn{7}{@{}l}{Baselines (each fits its own map)} \\
 GP level-set & 19.6 [14.7, 24.7] & 85\% & 0.48 [0.41, 0.54] & 18.1 [15.8, 20.6] & 77\% & 0.39 [0.36, 0.42] \\
 NSGA-II & 22.0 [16.6, 27.5] & 78\% & 0.39 [0.34, 0.45] & 17.6 [15.7, 19.6] & 74\% & 0.33 [0.31, 0.36] \\
 MAP-Elites & 25.5 [19.5, 31.9] & 73\% & 0.37 [0.32, 0.42] & 19.4 [17.3, 21.7] & 71\% & 0.31 [0.29, 0.33] \\
@@ -205,12 +208,12 @@ Sobol & 29.8 [22.1, 38.6] & 69\% & 0.29 [0.24, 0.35] & 22.3 [19.6, 25.1] & 66\% 
 Random & 27.4 [20.0, 34.7] & 72\% & 0.31 [0.26, 0.36] & 22.6 [19.9, 25.2] & 66\% & 0.25 [0.23, 0.27] \\
 \bottomrule
 \end{tabular}
-\caption{Explorers on achievable specs, 95\% intervals over tasks. First hit: penalized first-hit score; spread, Sobol: candidate settings (Section~\ref{sec:loop}); annealed: see below. Per difficulty: Appendix~\ref{app:setup}. --: not yet run on test\protect\footnotemark[2].}\label{tab:rl}\vspace{-10pt}
+\caption{Explorers on achievable specs, 95\% intervals over tasks. IoU is comparable within each group, which shares a map estimator; differences across groups also reflect the estimators. First hit: penalized first-hit score; spread, Sobol: candidate settings (Section~\ref{sec:loop}); annealed: see below. Per difficulty: Appendix~\ref{app:setup}. --: not yet run on test\protect\footnotemark[2].}\label{tab:rl}\vspace{-10pt}
 \end{table}
 \footnotetext[2]{Trained shortly before submission; test runs as time allowed: two training seeds for PPO, one for annealed PPO.}
 \vspace{-3pt}
 Most of the gain comes from the environment's acquisition rule. Picking the offered candidate with the highest
-GP chance (greedy) reaches a passing design with 0.3--0.6 times the simulations of the best baseline, though the
+GP chance (greedy) has a penalized first-hit score 0.3--0.6 times that of the strongest baseline, though the
 baselines pursue goals that first hit does not reward. Random pick, given
 the very same candidates, does little better than random sampling, so the GP ranking, not the candidate generator, is
 what matters. IoU is not comparable across the two groups: the environment's methods share one map estimator and the
@@ -236,11 +239,10 @@ Without full test runs, these are only observations.
 Two results mark the limits of finding. In an exploratory mapping run (\texttt{diffpair\_rload}, 172 of 16,807
 designs feasible, on an older simulator version, ngspice 42), greedy and PPO both reach IoU 0.99 within 600
 simulations, PPO more slowly, while GP level-set reaches 0.17, in line with the proposal pilot's GP baseline (0.37 after
-1,000). PPO's finding advantage does not carry over to mapping, and a grid that greedy maps almost perfectly leaves no
-headroom: the mapping test needs harder sets. And no explorer has learned to recognize
-infeasible specifications: judged by the final chance that any design meets the specification, random pick separates them from achievable
-ones (AUROC 0.91) as well as most learned
-models (0.77--0.96).
+1,000). In this exploratory experiment, PPO's finding advantage does not carry over to mapping, and a grid that greedy maps almost perfectly leaves no
+headroom: the mapping test needs harder sets. On infeasible specifications,
+learned methods show no consistent advantage over random pick in telling them from achievable ones (AUROC 0.77--0.96
+against 0.91, by the final chance that any design meets the specification).
 
 \subsection{LLM designer: a component check (deliverable 1)}\label{sec:llm}
 The rule baseline tries catalogue circuits from the fewest devices up. On stored 512-design pools and the 258
@@ -314,6 +316,7 @@ Appendix~\ref{app:status} compares this status with the proposal's milestone goa
 \end{thebibliography}
 
 \appendix
+\titleformat{\section}{\normalsize\bfseries}{Appendix \thesection:}{0.5em}{}
 \section{Contributions}\label{app:who}
 \begin{itemize}
   \item \uline{Renzhi Li} (circuit lead): circuit catalogue and task set \texttt{m1}, simulator, shared RL environment
@@ -370,8 +373,12 @@ training circuits $-1.00$, held-out circuits $-1.27$, new topologies $-1.06$ (ga
 0.57], the other $-1.50$); specifications on design sets no training specification used $-0.91$ [$-1.23$, $-0.61$];
 ahead on 17 of 22 circuits; training seeds $-1.05$ and $-1.17$.
 
-\textbf{Test results by difficulty} (first-hit score; solved; fraction of the set's feasible designs found;
-hypervolume of the found designs' normalized margins):
+\textbf{Test results by difficulty.} First-hit score and solved share by difficulty; \emph{Found} and
+\emph{Hypervolume} pool all achievable specifications. Found: the share of the set's feasible designs among those
+simulated. Hypervolume: the volume dominated by the simulated feasible designs in the space of normalized target
+margins ($(v-t)/n$ or $\log_{10}(v/t)/n$, larger is better), with the reference point at zero margin, i.e.\ the
+specification thresholds; margins above the scale $n$ give values above 1. Each is averaged per task over the three
+budgets and ten seeds, then over tasks:
 
 \begin{center}\footnotesize
 \begin{tabular}{lccccccc}
