@@ -63,40 +63,45 @@ circuit to be fabricated. The designer picks a \uline{topology}, the arrangement
 capacitors), then \uline{sizes} it: device dimensions, bias and supply. Every candidate needs a circuit (SPICE)
 simulation, and for demanding specifications few sizings pass.
 
-Prior work automates parts of this. RL methods treat sizing as control, with a policy that outputs sizes
-(AutoCkt~\cite{autockt}, PPAAS~\cite{ppaas}, and GCN-RL~\cite{gcnrl}, which transfers across processes through a
-circuit graph); MetaBO~\cite{metabo} instead learns the acquisition rule of Bayesian optimization, which design to
-evaluate next. Feasible-region estimation learns one circuit at a time, with classifiers~\cite{debernardinis,linli,zhang22}
-or GP level-set estimation~\cite{gotovos}, which samples near the predicted pass/fail boundary; MOJITO-R~\cite{mojitor}
-maps the trade-offs of a 3,528-topology library by evolutionary search. Graph neural networks~\cite{cktgnn,wusavidis}
-predict performance from circuit structure. LLMs write and repair circuit code~\cite{analogcoder,analogcoderpro},
-propose designs inside Bayesian optimization~\cite{adollm}, check designs against rules~\cite{analogxpert}, size
-circuits through the simulator~\cite{eesizer} or work as agent teams~\cite{analogsage}. Most of this work sizes a given
-topology toward given targets or learns one circuit's pass/fail region from scratch. We study topology selection and
-when to stop searching, in one simulation-budgeted workflow.
+Prior work automates parts of this. In RL sizing, AutoCkt~\cite{autockt} learns sizing actions that meet target
+specifications and generalizes to unseen targets, PPAAS~\cite{ppaas} conditions sizing on the goal across PVT corners,
+and GCN-RL~\cite{gcnrl} transfers across technology nodes and topologies through a circuit graph. MetaBO~\cite{metabo},
+our methodological starting point, learns the acquisition function of Bayesian optimization across tasks.
+Simulation-efficient performance modelling represents feasible performance spaces~\cite{debernardinis} or classifies
+performance with active learning~\cite{linli,zhang22}; in parameter space, the straddle rule~\cite{bryan} and level-set
+estimation~\cite{gotovos} sample near a predicted threshold, while active search~\cite{garnett} aims instead to discover
+members of a desired class, the same split as between our finding and mapping goals. MOJITO-R~\cite{mojitor} returns
+Pareto-optimal sized topologies from a 3,528-topology library by evolutionary search, and CktGNN~\cite{cktgnn} generates
+and sizes topologies with a graph model; graph models also transfer performance prediction across
+topologies~\cite{wusavidis}. LLMs write and repair circuit code~\cite{analogcoder}, generate topologies from
+specifications and size them with Bayesian optimization~\cite{analogcoderpro}, propose designs inside Bayesian
+optimization~\cite{adollm}, synthesize topologies by selecting and connecting subcircuits~\cite{analogxpert}, size
+circuits through the simulator~\cite{eesizer} or work as agent teams~\cite{analogsage}. Topology generation and sizing
+are thus well studied; we add a learned acquisition policy shared across circuits, trained and compared in one
+budget-controlled environment, aimed at finding and eventually mapping feasible regions.
 
 We propose a design loop that splits this work (Section~\ref{sec:loop}). An LLM acts as the designer: it proposes
 topologies and decides whether to accept one, retry, or relax the specification when the search finds no passing design, but never
 gives a size. An RL explorer, trained once across many circuits, then chooses which sizings of a proposed topology to
 simulate, first to find a design that meets the specification and ultimately to map where it can be met, in as few
-simulations as possible. Like MetaBO, it picks which offered design to simulate next rather than outputting sizes,
-building on a GP model of the feasible region as in level-set estimation, with one policy for all circuits. Because
-the process design kits (PDKs) that describe a manufacturing process are often confidential, a circuit compiler sits
-between the two, meant to keep the process kit from both models (for now it is a stand-in). A topology is accepted only
+simulations as possible. Like MetaBO, it picks which offered design to simulate next, using a GP model of the feasible
+region, with one policy for all circuits. Because
+process design kits (PDKs) are often confidential, a circuit compiler sits between the two, meant to keep the kit
+from both models (for now a stand-in). A topology is accepted only
 on a simulated design that meets every target.
 
 Milestone 1 revises this workflow and sets up the RL environment for it. Dense reference sets for mapping were too
 expensive to build: exact labels for one 5-knob circuit at one load already take 16,807 simulations, and the cost
 grows as $L^k$ for $k$ knobs at $L$ levels. Transfer to GF\,180\,nm and validation of the bias-mask saving could not be
-completed in the available implementation and simulation time. The milestone therefore delivers three things:
+completed in the time available. The milestone therefore delivers three things:
 (1) a workflow specified from proposal through screening, sizing, feedback and acceptance, with its components
-checked one at a time (the compiler is a stand-in and the explorer is not yet in the loop); (2) a benchmark
+checked one at a time (the compiler a stand-in, the explorer
+not yet in the loop); (2) a benchmark
 environment with a shared training, validation and test framework on 20 catalogue circuits and 2 new topologies whose small design sets (64--512 designs) we simulated in
 full, so achievability within each set is known; and (3) a controlled comparison of learned explorers with fixed
-acquisition rules at equal simulation budgets, scored on \uline{finding} a passing design, which such sets score
-exactly; mapping and transfer remain for the final report. A PPO explorer lowers the penalized first-hit score by
+acquisition rules at equal simulation budgets, scored on \uline{finding} a passing design; mapping and transfer remain for the final report. A PPO explorer lowers the penalized first-hit score by
 about 12\% against the best fixed rule, mostly on the hardest specifications (preliminary: two training seeds); in a
-component check on stored pools, Claude Sonnet 5 recovered 9 evaluation cases that a rule baseline
+component check on stored pools, Claude Sonnet 5 recovered 9 evaluation cases a rule baseline
 wrongly abandoned, losing none.
 
 
@@ -149,13 +154,13 @@ bonus rewards further hits, which need not mean wider coverage. Rewards for mapp
 Two references separate what the environment gives from what learning adds: \uline{greedy}, a fixed rule, picks the
 candidate with the highest chance (the probability-of-feasibility rule of constrained Bayesian optimization), and
 \uline{random pick} picks any offered candidate. The \uline{baselines} instead choose from the whole design set by
-their own objectives: the pass/fail boundary (GP level-set: straddle sampling, $1.96\sigma - |\mu|$ on the target with
-the lowest predicted margin~\cite{gotovos}), the trade-off front (NSGA-II), coverage (MAP-Elites), or none (random,
+their own objectives: the pass/fail boundary (GP level-set: the straddle rule~\cite{bryan,gotovos} adapted to multiple
+constraints, $1.96\sigma - |\mu|$ on the target with the lowest predicted margin), the trade-off front (NSGA-II), coverage (MAP-Elites), or none (random,
 Sobol); scoring by first hit favours the methods built for finding. \uline{IoU}, the proposal's metric, compares a
 method's map of the design set with the exact feasible set: simulated designs count at their true result, the rest as
 feasible where the method's GP gives a chance above 0.5. All methods start from the same initial designs, see the same simulator outputs, and run under the same simulation
 budget per task (starting designs included) and the same ten seeds; the learned explorers additionally train for 200k environment
-steps on training tasks (DQN 6.9k, PPO 3.0k parameters), which fixed rules do not need. No method was tuned;
+steps on training tasks, which fixed rules do not need. No method was tuned;
 only the environment methods' candidate setting was chosen on validation. Simulations are the controlled resource; training, GP fitting and LLM
 inference are extra costs.
 
@@ -314,7 +319,9 @@ own two-stage circuits and met two of three specifications only that OTA meets.
 \bibitem{debernardinis} F.~De Bernardinis, M.~I.~Jordan, A.~Sangiovanni-Vincentelli, ``Support vector machines for analog circuit performance representation,'' DAC, 2003.
 \bibitem{linli} H.~Lin, P.~Li, ``Circuit performance classification with active learning guided sampling for support vector machines,'' IEEE TCAD 34(9), 2015.
 \bibitem{zhang22} L.~Zhang et al., ``Bayesian deep active learning for analog circuit performance classification,'' ISCAS, 2022.
+\bibitem{bryan} B.~Bryan, J.~Schneider, R.~C.~Nichol, C.~J.~Miller, C.~R.~Genovese, L.~Wasserman, ``Active learning for identifying function threshold boundaries,'' NeurIPS, 2005.
 \bibitem{gotovos} A.~Gotovos, N.~Casati, G.~Hitz, A.~Krause, ``Active learning for level set estimation,'' IJCAI, 2013.
+\bibitem{garnett} R.~Garnett, Y.~Krishnamurthy, X.~Xiong, J.~Schneider, R.~Mann, ``Bayesian optimal active search and surveying,'' ICML, 2012.
 \bibitem{mojitor} T.~McConaghy et al., ``Variation-aware structural synthesis of analog circuits via hierarchical building blocks and structural homotopy'' (MOJITO-R), IEEE TCAD, 2009.
 \bibitem{cktgnn} Z.~Dong et al., ``CktGNN: circuit graph neural network for electronic design automation,'' ICLR, 2023.
 \bibitem{wusavidis} Z.~Wu, I.~Savidis, ``Transfer of performance models across analog circuit topologies with graph neural networks,'' MLCAD, 2022.
@@ -344,11 +351,7 @@ own two-stage circuits and met two of three specifications only that OTA meets.
         
         
         , 2024.
-\bibitem{eesizer} C.~Liu, D.~Chitnis, ``EEsizer: LLM-based AI agent for sizing of analog and mixed signal circuit,'' arXiv:2509.25510
-        
-        
-        
-        , 2025.
+\bibitem{eesizer} C.~Liu, D.~Chitnis, ``EEsizer: LLM-based AI agent for sizing of analog and mixed signal circuit,'' IEEE Trans.\ Circuits and Systems I, doi:10.1109/TCSI.2025.3646359; arXiv:2509.25510, 2025.
 \bibitem{analogsage} Z.~Wang et al., ``AnalogSAGE: self-evolving analog design multi-agents with stratified memory and grounded experience,'' arXiv:2512.22435
         
         
@@ -455,7 +458,7 @@ checks enter GP level-set as constraints. IoU is computed on achievable specific
 from each method's own map. Infeasibility AUROC uses each method's final chance that any design meets the
 specification, at the task's largest budget, with achievable specifications as the positive class.
 
-\textbf{Setup.}
+\textbf{Setup.} Learned explorers: DQN 6.9k and PPO 3.0k parameters, 200k environment steps each.
 Simulator: ngspice 41 (pinned; stored results are checked against it, except the mapping check's sweep, made earlier with ngspice 42), SkyWater 130\,nm at the typical corner,
 27\,$^\circ$C. LLM designers: \texttt{claude-haiku-4-5-20251001} and \texttt{claude-sonnet-5}, provider-default
 sampling (Sonnet refuses a temperature setting, so both run at the default), at most 16,000 output tokens per reply;
