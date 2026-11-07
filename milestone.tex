@@ -186,8 +186,7 @@ random designs with every knob free. Such small spaces suit a GP, which may favo
 proposal's 5--10 knobs are untested. Its 1,324 specifications are labelled by the share of designs meeting them: easy (median 19\%), medium
 (4\%), tight (0.4\%, often a single design) or infeasible (no design in the set meets them). Models train on the training circuits and are selected on
 the validation circuits; the 622 test specifications add new ones on those circuits and everything on the held-out
-circuits and new topologies. Table~\ref{tab:rl} reports means over achievable specifications, three budgets and ten
-seeds.
+circuits and new topologies.
 
 \begin{table}[!t]\centering\footnotesize
 \begin{tabular}{lccc@{\hspace{10pt}}ccc}
@@ -215,9 +214,8 @@ Sobol & 29.8 [22.1, 38.6] & 69\% & 0.29 [0.24, 0.35] & 22.3 [19.6, 25.1] & 66\% 
 Random & 27.4 [20.0, 34.7] & 72\% & 0.31 [0.26, 0.36] & 22.6 [19.9, 25.2] & 66\% & 0.25 [0.23, 0.27] \\
 \bottomrule
 \end{tabular}
-\caption{Explorers on achievable specs, 95\% intervals over tasks. Environment methods share a map estimator; each baseline uses its own. IoU differences between methods with different estimators reflect both sampling and map estimation. First hit: penalized first-hit score; spread, Sobol, annealed: candidate settings (Sections~\ref{sec:loop}, \ref{sec:rl}). Per difficulty: Appendix~\ref{app:setup}. --: not yet run on test\protect\footnotemark[2].}\label{tab:rl}\vspace{-10pt}
+\caption{Explorers: means over achievable specs, three budgets and ten seeds; 95\% intervals over tasks. Learned rows average their training seeds (on test, two for PPO, one for annealed PPO); intervals resample tasks only, so they do not include training-seed variability. Environment methods share a map estimator; each baseline uses its own. IoU differences between methods with different estimators reflect both sampling and map estimation. Spread, Sobol, annealed: candidate settings (Sections~\ref{sec:loop}, \ref{sec:rl}). Per difficulty: Appendix~\ref{app:setup}. --: not yet run on test.}\label{tab:rl}\vspace{-10pt}
 \end{table}
-\footnotetext[2]{Trained shortly before submission; test runs as time allowed: two training seeds for PPO, one for annealed PPO.}
 \vspace{-3pt}
 Most of the gain comes from the environment's acquisition rule. Picking the offered candidate with the highest
 GP chance (greedy) has a penalized first-hit score 0.3--0.6 times that of the strongest baseline, though the
