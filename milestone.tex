@@ -146,7 +146,7 @@ left, designs found, highest chance).
 
 The \uline{reward} is 1 for the first design that meets the specification and 0.25 for each later one (discount 0.99
 for DQN, 0.98 for PPO). We reward finding because the loop accepts a topology only on a found design; the smaller
-bonus rewards further hits, which need not mean wider coverage. Rewards for uncertainty reduction or IoU gain are a final ablation.
+bonus rewards further hits, which need not mean wider coverage. Rewards for mapping (uncertainty reduction or IoU gain) are the next step (Section~\ref{sec:goals}).
 
 Two references separate what the environment gives from what learning adds: \uline{greedy}, a fixed rule, picks the
 candidate with the highest chance (the probability-of-feasibility rule of constrained Bayesian optimization), and
@@ -227,7 +227,8 @@ seeds give 1.05 and 1.17, so the result is preliminary. It is not only more solv
 1.4 simulations sooner. Both score 1.1 on easy specifications, where two thirds of runs hit among the starting designs;
 PPO leads on medium (3.9 against 4.4) and tight ones (18.7 against 21.4), where a single design often meets the spec and
 every candidate's chance is close to zero. PPO is in effect a learned correction to the probability-of-feasibility
-rule, as in MetaBO, probably using uncertainty and distance to explore (untested). Held-out evidence is small: three circuits and two new topologies, one of which shows no gain.
+rule, as in MetaBO. DQN, which does not beat greedy overall, also gains slightly on tight specifications (20.5
+against 21.4), so whether PPO's gain comes from its uncertainty and distance features is untested. Held-out evidence is small: three circuits and two new topologies, one of which shows no gain.
 
 DQN does not improve on greedy (level on test, behind on validation), possibly because its value estimates stay noisy
 under a sparse reward without tuning. Three further learners probe what PPO's gain depends on. GRPO, which replaces the
@@ -239,8 +240,8 @@ Without full test runs, these are only observations.
 
 Two results mark the limits of finding. In an exploratory mapping run (\texttt{diffpair\_rload}, 172 of 16,807
 designs feasible, on an older simulator version, ngspice 42), greedy and PPO both reach IoU 0.99 within 600
-simulations, PPO more slowly, while GP level-set reaches 0.17, in line with the proposal pilot's GP baseline (0.37 after
-1,000). In this exploratory experiment, PPO's finding advantage does not carry over to mapping, and a grid that greedy maps almost perfectly leaves no
+simulations, PPO more slowly, while GP level-set reaches 0.17, comparable to the proposal pilot's GP baseline (0.37 after
+1,000); as in Table~\ref{tab:rl}, part of that gap may reflect the separate map estimators. In this exploratory experiment, PPO's finding advantage does not carry over to mapping, and a grid that greedy maps almost perfectly leaves no
 headroom: the mapping test needs harder sets. On infeasible specifications,
 learned methods show no consistent advantage over random pick in telling them from achievable ones (AUROC 0.77--0.96
 against 0.91, by the final chance that any design meets the specification).
@@ -265,7 +266,7 @@ Claude Sonnet 5 & 78\% & 1 & 0.87$\times$ & 4 / 0 & 84\% & 1 & 0.88$\times$ & 5 
 \end{tabular}
 \end{center}
 \vspace{-3pt}
-``Wrong n.f.'': achievable specifications given up as not found; ``Sims'': simulations relative to the rules;
+``Wrong n.f.'': achievable specifications given up as not found; ``Sims'': all simulations, quick screens plus searches, relative to the rules;
 ``Found / lost'': specifications met where the rules gave up, and the reverse. Sonnet 5 recovered 9 evaluation cases the
 rules abandoned, lost none and used about 12\% fewer simulations; Haiku 4.5 gained 9 and lost 5; Sonnet's hand analysis seems to try a working circuit early. The comparison is encouraging rather than conclusive: the samples share 12 specifications and each has one cached
 generation, so we report counts, not significance; and device count is a weak ordering, where a fair rule would rank
@@ -275,12 +276,12 @@ own two-stage circuits and met two of the three specifications only that OTA mee
 % ==================================================================
 \section{Plan to the final report}\label{sec:goals}
 \begin{itemize}
-    \item Move the evaluation from finding to mapping, on larger and
-  harder design sets than \texttt{m1}; the sets, reward and comparison are still to be decided within the simulation
-  budget.
+    \item Move the evaluation from finding to mapping. Still to decide, within the simulation budget: which design sets (more knobs and a
+  lower feasible share than \texttt{m1}, so greedy has headroom), which reward (the proposal's uncertainty reduction or
+  IoU gain), which baselines, and one shared map estimator to score them all.
   \item Strengthen the finding result with more training seeds and further controls.
   \item Complete the compiler and connect the trained explorer to the LLM designer.
-  \item Other pending items: transfer to GF\,180\,nm, continuous sizing, stopping on infeasible
+  \item Other pending items: transfer to GF\,180\,nm, re-measuring the bias-mask saving, continuous sizing, stopping on infeasible
   specifications, a local LLM, user constraints and TSMC 65\,nm.
 
 
@@ -373,8 +374,8 @@ own two-stage circuits and met two of the three specifications only that OTA mee
 
 \section{Status against the proposal}\label{app:status}
 Milestone 1 was spent on revising the workflow and building the RL environment and its harness, including the
-optional LLM designer that the revised loop relies on. The proposal's simulation-heavy objectives (mapping, transfer,
-the mask saving) could not be completed in the time available and move to the final report.
+optional LLM designer that the revised loop relies on. Of the proposal's simulation-heavy objectives, mapping moves to the final report as its main goal;
+transfer to GF\,180\,nm and re-measuring the mask saving are not yet done and remain planned (Section~\ref{sec:goals}).
 
 {\small\noindent
 \begin{tabularx}{\linewidth}{@{}L{0.28\linewidth}L{0.07\linewidth}Y@{}}
@@ -382,12 +383,12 @@ the mask saving) could not be completed in the time available and move to the fi
 Milestone goal (proposal) & Status & Where it stands \\
 \midrule
 Ground truth for three topologies & expanded & 22 circuits with finite-set ground truth: exhaustive grids and fully evaluated random pools (Section~\ref{sec:rl}) \\ \rowrule
-Reparameterized actions, design mask & dropped & The mask needed DC simulations that would count against the budget; bias is now a simulated outcome the explorer predicts. The 35\% saving has not been re-measured \\ \rowrule
+Reparameterized actions, design mask & dropped & The proposal's mask was a cheap table lookup, but the table rests on rough gm/ID estimates; an exact DC run costs about as much (0.14\,s), so bias is now a simulated outcome the explorer predicts. The 35\% saving has not been re-measured \\ \rowrule
 Five baselines at equal budget & done & All five in one harness (Table~\ref{tab:rl}); scored by first hit, which favours finding methods \\ \rowrule
 Metrics: IoU, fraction found, hypervolume & done & IoU in Table~\ref{tab:rl}; fraction found and hypervolume in Appendix~\ref{app:setup} \\ \rowrule
 First PPO policy on one topology & changed & DQN, PPO and three more learners on one shared environment; PPO ahead of greedy \\ \rowrule
 Learned feasible-region mapping & planned & Small-set IoU and one exploratory run so far; the main goal for the final report (Section~\ref{sec:goals}) \\ \rowrule
-Early cross-process transfer & moved & Not yet done: GF\,180\,nm design sets not built; planned for the final report \\ \rowrule
+Early cross-process transfer & moved & Not yet done: GF\,180\,nm design sets not built; planned (Section~\ref{sec:goals}) \\ \rowrule
 Graph track (optional) & dropped & Built and removed: 2.3 against 2.5 quick screens for device count; a GP on 32 of a circuit's own simulations predicted it better\phantomsection\label{sec:gnn} \\
 \bottomrule
 \end{tabularx}
@@ -465,7 +466,7 @@ kernel, hyperparameters refitted every 16 simulations; straddle acquisition $1.9
 \toprule
 Proposal & Now & Why \\
 \midrule
-Reward: uncertainty drop; metric IoU & Reward 1 for the first meeting design, 0.25 per later one; metric: simulations to the first; IoU beside it & The loop accepts a topology only on a found design; uncertainty and IoU rewards are a final ablation \\ \rowrule
+Reward: uncertainty drop; metric IoU & Reward 1 for the first meeting design, 0.25 per later one; metric: simulations to the first; IoU beside it & The loop accepts a topology only on a found design; uncertainty-reduction and IoU-gain rewards become the main method for mapping in the final report \\ \rowrule
 Policy acts on design variables (reparameterized actions) & Policy picks among offered candidates, scored by 16 shared candidate features + 9 episode features & One action space for any circuit, knob count, spec and load \\ \rowrule
 Rule supervisor; LLM agent (opt.) & LLM \uline{designer}: proposes topologies, calls accept / retry / give up; rules are its baseline & Rejecting unachievable specs is worth learning \\ \rowrule
 \bottomrule
