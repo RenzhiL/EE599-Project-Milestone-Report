@@ -188,7 +188,7 @@ Greedy, Sobol & 6.6 [4.9, 8.5] & 98\% & 0.90 [0.88, 0.92] & 9.3 [7.6, 11.0] & 92
 DQN, spread & 7.5 [5.5, 9.8] & 96\% & 0.88 [0.86, 0.90] & 9.0 [7.5, 10.7] & 92\% & 0.80 [0.78, 0.81] \\
 DQN, Sobol & 8.7 [6.3, 11.8] & 94\% & 0.84 [0.81, 0.86] & 9.9 [8.3, 11.6] & 89\% & 0.74 [0.73, 0.76] \\
 PPO, spread & 5.9 [4.4, 7.5] & 98\% & 0.91 [0.89, 0.93] & 8.1 [6.7, 9.7] & 94\% & 0.84 [0.82, 0.85] \\
-PPO, annealed & 6.0 [4.5, 7.7] & 98\% & 0.91 [0.89, 0.93] & -- & -- & -- \\
+PPO, annealed & 6.0 [4.5, 7.7] & 98\% & 0.91 [0.89, 0.93] & 8.2 [6.7, 9.9] & 94\% & 0.84 [0.82, 0.85] \\
 GRPO, Sobol & 6.3 [4.7, 8.1] & 98\% & 0.91 [0.89, 0.93] & -- & -- & -- \\
 Evolution strategy, Sobol & 7.3 [5.3, 9.5] & 97\% & 0.86 [0.84, 0.88] & -- & -- & -- \\
 GP level-set & 19.6 [14.7, 24.7] & 85\% & 0.48 [0.41, 0.54] & 18.1 [15.8, 20.6] & 77\% & 0.39 [0.36, 0.42] \\
@@ -200,7 +200,7 @@ Random & 27.4 [20.0, 34.7] & 72\% & 0.31 [0.26, 0.36] & 22.6 [19.9, 25.2] & 66\%
 \end{tabular}
 \caption{Explorers on achievable specs, 95\% intervals over tasks. Spread, Sobol: candidate settings (footnote~1); annealed: see below. --: not yet run on test\protect\footnotemark[2].}\label{tab:rl}\vspace{-10pt}
 \end{table}
-\footnotetext[2]{These three models finished training shortly before submission; their test runs could not finish in time.}
+\footnotetext[2]{These models finished training shortly before submission; GRPO's and the evolution strategy's test runs could not finish in time, and the annealed PPO's covers one training seed.}
 \vspace{-3pt}
 \begin{itemize}
   \item \textbf{The environment does most of the work.} Choosing among offered candidates by the GP's chance, with or
@@ -213,10 +213,11 @@ Random & 27.4 [20.0, 34.7] & 72\% & 0.31 [0.26, 0.36] & 22.6 [19.9, 25.2] & 66\%
   \item \textbf{DQN does not.} It is level with greedy on test and behind on validation in all four settings; on tight
   validation specs it needs 19.5 simulations to greedy's 16.2 ($+3.3$ [1.6, 5.2]). Its seeds differ by 0.3--1.3
   simulations and 0.01--0.04 in IoU.
-  \item \textbf{Other learners (validation only).} PPO with \emph{annealed} candidates (spread at first, then more and
-  more near the best designs) needs 0.75 fewer simulations [0.22, 1.31] than greedy with the same candidates, 1.75
-  fewer on tight specs; the annealed candidates alone do not help greedy. GRPO (PPO without a value network) matches
-  PPO; an evolution strategy scored on the first hit trails greedy (+0.68) and finds fewer designs after it.
+  \item \textbf{Other learners.} PPO with \emph{annealed} candidates (spread at first, then more and more near the
+  best designs) needs 0.75 fewer simulations [0.22, 1.31] than greedy with the same candidates on validation, while
+  those candidates alone do not help greedy; on test it ties PPO with spread candidates ($+0.06$ [$-0.11$, 0.23]).
+  GRPO (PPO without a value network) matches PPO on validation; an evolution strategy scored on the first hit trails
+  greedy (+0.68) and finds fewer designs after it.
   \item \textbf{Scaling.} Simulations to the first hit grow as (feasible share)$^{-0.63}$ for greedy and DQN,
   $^{-0.75}$ for GP level-set and $^{-0.93}$ for random; greedy needs 0.3--0.5$\times$ random's at every number of
   knobs. On m1's small sets IoU mostly measures finding; exact ground truth costs (levels per knob)$^{\text{knobs}}$.
@@ -283,7 +284,7 @@ Graph track (optional) & dropped & Built and removed: little gain over counting 
 
 \textbf{Plan to the final report.}
 \begin{itemize}
-  \item \textbf{Required, RL:} finish the test runs of the three new learners and carry the best PPO forward ($\le$8
+  \item \textbf{Required, RL:} finish the new learners' test runs and carry the best PPO forward ($\le$8
   tuning trials, chosen on validation). Its margin over greedy on tight specs must hold on newly simulated designs,
   not only stored ones, and on mapping. Mapping becomes the headline: IoU on large grids and how it depends on grid
   resolution, and a reward ablation (finding, uncertainty drop, find then map) toward an explorer that judges a
