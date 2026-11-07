@@ -70,43 +70,35 @@ topologies and decides whether to accept one, retry, or relax the specification 
 explorer, trained once across many circuits, then chooses which sizings of a proposed topology to simulate, first to
 find a design that meets the specification and ultimately to map where it can be met, in as few simulations as
 possible. Because the process design kits (PDKs) that describe a manufacturing process are often confidential, a
-circuit compiler sits between the two, designed so that neither model needs the process kit itself. A topology is accepted
+circuit compiler sits between the two, meant to keep the process kit from both models (for now it is a stand-in). A topology is accepted
 only on a simulated design that meets every target.
 
-Milestone 1 delivers three things. First, the workflow is specified from proposal through screening, sizing,
-feedback and acceptance, and its components are built and checked one at a time; the compiler is still a stand-in and
-the explorer is not yet wired into the loop. Second, a benchmark environment: 20 catalogue circuits and 2 new
-topologies whose design sets (exhaustive grids and random pools) we simulated in full, so whether a specification
-can be met within each finite set is known,
-with one interface for observations, rewards and metrics. Third, a controlled comparison of learned explorers with
-fixed acquisition rules at equal simulation budgets. We evaluate \uline{finding} a passing design rather than mapping
-the whole feasible region, because scoring a map needs every design of a set simulated for its labels, a cost that
-grows as $L^k$ for $k$ knobs at $L$ levels (16,807 simulations for one 5-knob circuit at one load, against 64--512 per
-set here), and IoU on such small, sparse sets is only a weak proxy for learning the shape of a continuous
-feasible region. Within that scope, a PPO explorer lowers the penalized first-hit score by about 12\% against the best fixed rule (a
-preliminary result from two training seeds),
-and Claude Sonnet 5, as the designer, recovered 9 evaluation cases that a rule baseline wrongly abandoned, losing none.
+Milestone 1 revises this workflow and sets up the RL environment for it. Most of the proposal's experimental
+objectives (mapping feasible regions, transfer to GF\,180\,nm, the bias-mask saving, the full metric set) need far more
+simulation than the milestone allowed: exact labels for one 5-knob circuit at one load already take 16,807
+simulations, and the cost grows as $L^k$ for $k$ knobs at $L$ levels. The milestone therefore delivers three things.
+First, the workflow is specified from proposal through screening, sizing, feedback and acceptance, and its components
+are checked one at a time (the compiler is a stand-in and the explorer is not yet in the loop). Second, a benchmark
+environment on 20 catalogue circuits and 2 new topologies whose small design sets (64--512 designs) we simulated in
+full, so achievability within each set is known. Third, a controlled comparison of learned explorers with fixed
+acquisition rules at equal simulation budgets, scored on \uline{finding} a passing design, which such sets score
+exactly; mapping and transfer remain for the final report. A PPO explorer lowers the penalized first-hit score by
+about 12\% against the best fixed rule, mostly on the hardest specifications (preliminary: two training seeds); in a
+component check on stored pools, Claude Sonnet 5 recovered 9 evaluation cases that a rule baseline
+wrongly abandoned, losing none.
 
-In prior RL work, sizing is treated as control: the policy outputs sizes and is rewarded for
-meeting a target (AutoCkt~\cite{autockt}, on targets it never saw; PPAAS~\cite{ppaas}, also over 45 manufacturing
-variations; GCN-RL~\cite{gcnrl}, transferring across processes and two topologies through a circuit graph). Our policy
-never outputs sizes: like MetaBO~\cite{metabo}, which learns the acquisition rule of Bayesian optimization, it picks
-which offered design to simulate next, one policy for all circuits.
-
-A second line of work estimates the whole region of sizings that pass, one circuit at a
-time: classifiers (SVMs~\cite{debernardinis,linli}, Bayesian neural networks~\cite{zhang22}) and GP level-set
-estimation~\cite{gotovos}, which samples near the predicted pass/fail boundary; MOJITO-R~\cite{mojitor} maps the
-trade-offs of a 3,528-topology library by evolutionary search. We use GP level-set as a baseline and GPs inside our
-environment; we add learning, across circuits, which design to simulate next. Graph neural networks~\cite{cktgnn,wusavidis}
-predict performance from structure and sizes; ours, tested leave-one-circuit-out on 15 circuits, ranked topologies
-barely better than device count (2.3 against 2.5 quick screens to a working circuit) and was dropped.
-
-In recent LLM work, models write circuits as code and repair them from simulation errors
-(AnalogCoder~\cite{analogcoder,analogcoderpro}), propose designs inside Bayesian optimization (ADO-LLM~\cite{adollm}),
-check designs against rules (AnalogXpert~\cite{analogxpert}), size circuits through the simulator
-(EEsizer~\cite{eesizer}) or work as agent teams (AnalogSAGE~\cite{analogsage}). Our LLM only chooses topologies and
-decides when to give up, scored against a rule baseline on specifications whose achievability within stored design
-sets is known.
+Prior RL work treats sizing as control, with a policy that outputs sizes (AutoCkt~\cite{autockt},
+PPAAS~\cite{ppaas}, and GCN-RL~\cite{gcnrl}, which transfers across processes through a circuit graph). Ours never
+outputs sizes: like MetaBO~\cite{metabo}, which learns the acquisition rule of Bayesian optimization, it picks which
+offered design to simulate next, one policy for all circuits. Feasible-region estimation learns one circuit at a time,
+with classifiers~\cite{debernardinis,linli,zhang22} or GP level-set estimation~\cite{gotovos}, which samples near the
+predicted boundary; MOJITO-R~\cite{mojitor} maps the trade-offs of a 3,528-topology library by evolutionary search. We
+use GP level-set as a baseline and add learning across circuits. Graph neural networks~\cite{cktgnn,wusavidis} predict
+performance from structure; ours ranked topologies barely better than device count (2.3 against 2.5 quick screens to a
+working circuit, leave-one-circuit-out on 15 circuits) and was dropped. LLMs write and repair circuit
+code~\cite{analogcoder,analogcoderpro}, propose designs inside Bayesian optimization~\cite{adollm}, check designs
+against rules~\cite{analogxpert}, size circuits through the simulator~\cite{eesizer} or work as agent
+teams~\cite{analogsage}; ours only picks topologies and when to give up.
 
 % ==================================================================
 \section{Methodology}\label{sec:loop}
@@ -142,7 +134,7 @@ report (per topology the compiler's verdict, screen and search; per target how c
 notes from earlier rounds. It answers with a hand analysis, any new generic circuits and its decision; in exploration
 mode it may also request a compiler check and 6 single-point simulations.
 
-In the RL environment (deliverable 2), each episode is one task: a circuit, its free knobs\footnote{\uline{Knob}: a design variable left free (a size, the supply or the input level). \uline{m1}, \uline{easy, medium, tight}: the task set and spec levels (Section~\ref{sec:rl}). \uline{First hit}: Table~\ref{tab:rl}. \uline{Candidate settings}: 32 candidates per knob by Sobol, uniform or half near the best design (\texttt{sobol32pk}, \texttt{random32pk}, \texttt{spread\_local32pk}), or 256 Sobol points (\texttt{sobol256}). Budgets: 10/25/50\% of the set, $\geq$12.}, a load and a specification,
+In the RL environment (deliverable 2), each episode is one task: a circuit, its free knobs\footnote{\uline{Knob}: a design variable left free (a size, the supply or the input level).}, a load and a specification,
 with a budget of simulations. It starts from 2 random designs per knob. At each step the environment offers 32
 candidate designs per knob, drawn by a candidate setting, and the agent picks one to simulate; the episode ends when
 the budget is spent. To score candidates, Gaussian processes (GPs) fitted on the designs simulated so far, one per
@@ -164,22 +156,28 @@ Sobol); scoring by first hit favours the methods built for finding. \uline{IoU},
 method's map of the design set with the exact feasible set: simulated designs count at their true result, the rest as
 feasible where the method's GP gives a chance above 0.5. All methods start from the same initial designs, see the same simulator outputs, and run under the same simulation
 budget per task (starting designs included) and the same ten seeds; the learned explorers additionally train for 200k environment
-steps on training tasks (DQN 6.9k, PPO 3.0k parameters), which fixed rules do not need. We did not tune them; each
-candidate setting was chosen on validation. Simulations are the controlled resource; training, GP fitting and LLM
+steps on training tasks (DQN 6.9k, PPO 3.0k parameters), which fixed rules do not need. No method was tuned;
+only the environment methods' candidate setting was chosen on validation. Simulations are the controlled resource; training, GP fitting and LLM
 inference are extra costs.
+
+Finding is scored by the \uline{first-hit score}: simulations after the shared starting designs until the first design
+that meets the specification, 0 if a starting design already does and picks\,+\,1 on a miss, so it mixes speed with
+solve rate. Budgets are 10, 25 or 50\% of the set (at least 12), leaving a median of 8, 25 and 56 picks.
+Specifications are \uline{easy}, \uline{medium} or \uline{tight} by the share of their set that meets them. Candidates
+come 32 per knob, as Sobol points (\uline{Sobol}) or half near the best design (\uline{spread}).
 
 % ==================================================================
 \section{Results}
 \subsection{RL explorer comparisons (deliverable 3)}\label{sec:rl}
-Before comparing explorers we checked the environment itself (Appendix~\ref{app:setup}). Every one of the
-654,897 stored evaluation runs used exactly its budget, with a first-hit score consistent with its outcome, and 25
-automated tests cover budget enforcement, duplicate prevention, seeding, hidden labels and metric correctness. An
-independent random sample per design set reproduces the sets' feasible shares (6.2\% vs 6.4\%) and meets 8 of the 449
-specifications labelled infeasible, a reminder that ``infeasible'' holds only within the simulated set.
+Before comparing explorers we checked the environment (Appendix~\ref{app:setup}): all 654,897 stored runs used
+exactly their budget with consistent scores, 25 automated tests pass, and an independent sample of designs off each
+stored set reproduces its feasible share (6.2\% vs 6.4\%) while meeting 8 of the 449 specifications labelled
+infeasible, so ``infeasible'' holds only within the set.
 
 The task set \texttt{m1} (SkyWater 130\,nm, loads 30\,fF--1\,pF) covers 14 training, 3 validation and 3 held-out
 circuits plus 2 new topologies, each with fully simulated design sets: grids over 2--4 knobs (64--256 designs) or 512
-random designs. Its 1,324 specifications are labelled by the share of designs meeting them: easy (median 19\%), medium
+random designs with every knob free. Such small spaces suit a GP, which may be one reason greedy is hard to beat; the
+proposal's regime of 5--10 continuous knobs is not yet tested. Its 1,324 specifications are labelled by the share of designs meeting them: easy (median 19\%), medium
 (4\%), tight (0.4\%, often a single design) or infeasible (no design in the set meets them). Models train on the training circuits and are selected on
 the validation circuits; the 622 test specifications add new ones on those circuits and everything on the held-out
 circuits and new topologies. Table~\ref{tab:rl} reports means over achievable specifications, three budgets and ten
@@ -208,42 +206,48 @@ Sobol & 29.8 [22.1, 38.6] & 69\% & 0.29 [0.24, 0.35] & 22.3 [19.6, 25.1] & 66\% 
 Random & 27.4 [20.0, 34.7] & 72\% & 0.31 [0.26, 0.36] & 22.6 [19.9, 25.2] & 66\% & 0.25 [0.23, 0.27] \\
 \bottomrule
 \end{tabular}
-\caption{Explorers on achievable specs, 95\% intervals over tasks. First hit: simulations after the shared starting designs until the first that meets the spec; a hit among the starting designs scores 0 and a miss picks\,+\,1. Spread, Sobol: candidate settings (footnote~1); annealed: see below. --: not yet run on test\protect\footnotemark[2].}\label{tab:rl}\vspace{-10pt}
+\caption{Explorers on achievable specs, 95\% intervals over tasks. First hit: penalized first-hit score; spread, Sobol: candidate settings (Section~\ref{sec:loop}); annealed: see below. Per difficulty: Appendix~\ref{app:setup}. --: not yet run on test\protect\footnotemark[2].}\label{tab:rl}\vspace{-10pt}
 \end{table}
-\footnotetext[2]{These models finished training shortly before submission. Test runs cover what time allowed: two training seeds for PPO, one for annealed PPO, none yet for GRPO and the evolution strategy.}
+\footnotetext[2]{Trained shortly before submission; test runs as time allowed: two training seeds for PPO, one for annealed PPO.}
 \vspace{-3pt}
 Most of the gain comes from the environment's acquisition rule. Picking the offered candidate with the highest
-GP chance (greedy) reaches a passing design with 0.3--0.6 times the simulations of the best baseline and roughly
-doubles IoU. Random pick, given the very same candidates, does little better than random sampling, so the GP ranking,
-not the candidate generator, is what matters for finding. Part of the IoU gap reflects the map estimator instead: the
-environment's methods share one, the baselines fit their own, and random pick and the random baseline, which sample
-alike, reach 0.43 and 0.25. Learning has to improve on greedy.
+GP chance (greedy) reaches a passing design with 0.3--0.6 times the simulations of the best baseline, though the
+baselines pursue other goals (boundary, trade-off front, coverage) that first hit does not reward. Random pick, given
+the very same candidates, does little better than random sampling, so the GP ranking, not the candidate generator, is
+what matters. IoU is not comparable across the two groups: the environment's methods share one map estimator and the
+baselines fit their own (random pick and the random baseline, which sample alike, reach 0.43 and 0.25), and at a 50\%
+budget half of each map is simulated truth. Learning has to improve on greedy.
 
-PPO does, modestly. On test it lowers the penalized first-hit score by 1.11 [0.76, 1.50], about 12\%, and raises IoU
-by 0.023; with two training seeds, the result is preliminary.
-The gain survives resampling whole circuits instead of tasks ([0.62, 1.64]), appears on training, held-out and
-new-topology specifications alike, and comes almost entirely from the 137 tight ones ($-2.7$), where every candidate's
-chance is close to zero; we suspect, but have not yet tested, that PPO then leans on the uncertainty and distance
-features to explore. It is not universal: of the two new topologies, the gain-boosted OTA shows none.
+PPO does, modestly. On test it lowers the penalized first-hit score by 1.11, about 12\%, with an interval of
+[0.62, 1.64] when whole circuits are resampled ([0.76, 1.50] over tasks), and raises IoU by 0.023; the two training
+seeds give 1.05 and 1.17, so the result is preliminary. It is not only more solves: on runs both methods solve, PPO hits
+1.4 simulations sooner. Both score 1.1 on easy specifications, where two thirds of runs hit among the starting designs;
+PPO leads on medium (3.9 against 4.4) and tight ones (18.7 against 21.4), where a single design often meets the spec and
+every candidate's chance is close to zero. PPO is in effect a learned correction to the probability-of-feasibility
+rule, in the spirit of MetaBO; we suspect, but have not tested, that it uses the uncertainty and distance features to
+explore. Held-out evidence is small (three circuits, two new topologies), and the gain-boosted OTA shows no gain.
 
 DQN does not improve on greedy (level on test, behind on validation), possibly because its value estimates stay noisy
 under a sparse reward without tuning. Three further learners probe what PPO's gain depends on. GRPO, which replaces the
-value network with an average over a group of episodes, matches PPO on validation. PPO with \uline{annealed}
+value network with an average over a group of episodes, is level with PPO on validation. PPO with \uline{annealed}
 candidates, broad at first and then concentrated near the best designs, beats greedy given the same candidates on
 validation and ties standard PPO on test; stored grids cannot be refined below their spacing, so its real test is live
 simulation. An evolution strategy optimized only for the first hit trails greedy and stops searching once it has one.
+Without full test runs, these are only observations.
 
 Two results mark the limits of finding. In an exploratory mapping run (\texttt{diffpair\_rload}, 172 of 16,807
-designs feasible, older simulator version), greedy and PPO both reach IoU 0.99 within 600 simulations, but PPO gets
-there more slowly: its finding advantage does not yet carry over to mapping. And no explorer has learned to recognize
+designs feasible, on an older simulator version, ngspice 42), greedy and PPO both reach IoU 0.99 within 600
+simulations, PPO more slowly, while GP level-set reaches 0.17, in line with the proposal pilot's GP baseline (0.37 after
+1,000). PPO's finding advantage does not carry over to mapping, and a grid that greedy maps almost perfectly leaves no
+headroom: the mapping test needs harder sets. And no explorer has learned to recognize
 infeasible specifications: judged by the final chance that any design meets the specification, random pick separates them from achievable
 ones (AUROC 0.91) as well as most learned
 models (0.77--0.96).
 
 \subsection{LLM designer: a component check (deliverable 1)}\label{sec:llm}
 The rule baseline tries catalogue circuits from the fewest devices up. On stored 512-design pools and the 258
-training specifications set on them, it never accepts a failing circuit, but it gives up on 13.6\% of specifications
-that are achievable in the pool, usually because the circuit that works lies beyond the nine it tries. We gave the LLM
+specifications of the RL training split set on them (the LLM is trained on none), it gives up on 13.6\% of
+specifications that are achievable in the pool, usually because the circuit that works lies beyond the nine it tries. We gave the LLM
 designers the same stored checks, catalogue circuits only, on two samples of 50 specifications under neutral labels:
 
 \begin{center}\small
@@ -263,25 +267,25 @@ Claude Sonnet 5 & 78\% & 1 & 0.87$\times$ & 4 / 0 & 84\% & 1 & 0.88$\times$ & 5 
 ``Wrong n.f.'': achievable specifications given up as not found; ``Sims'': simulations relative to the rules;
 ``Found / lost'': specifications met where the rules gave up, and the reverse. Sonnet 5 recovered 9 evaluation cases the
 rules abandoned, lost none and used about 12\% fewer simulations; Haiku 4.5 gained 9 and lost 5. Sonnet's hand analysis
-seems to put a working circuit among its first tries. The comparison is encouraging rather than conclusive: the two
-samples share 12 specifications, so we report counts rather than significance; device count is a weak ordering to beat;
-and the catalogue lists each circuit's metrics, which makes part of the task informed retrieval. In a demonstration
-with the two-stage Miller OTA removed from the catalogue and a stand-in compiler, Sonnet drew its own two-stage circuits
-and met two of the three specifications only that OTA could meet.
+seems to put a working circuit among its first tries. The comparison is encouraging rather than conclusive: the samples share 12 specifications and each has one cached
+generation, so we report counts, not significance; and device count is a weak ordering, where a fair rule would rank
+circuits by how close their catalogue metrics are to the specification. With the two-stage Miller OTA removed from the catalogue (a demonstration with a stand-in compiler), Sonnet drew its
+own two-stage circuits and met two of the three specifications only that OTA meets.
 
 % ==================================================================
 \section{Plan to the final report}\label{sec:goals}
 Appendix~\ref{app:status} compares this status with the proposal's milestone goals. For the final report:
 \begin{itemize}
-  \item \uline{Strengthen the finding result.} Report per-circuit results and success against simulation count, add
-  an uncertainty-based rule on the same candidates as a control, test whether PPO's tight-spec gain comes from its
-  uncertainty and distance features, finish the remaining test runs, and confirm the gain on newly simulated designs.
+  \item \uline{Strengthen the finding result.} Five training seeds; results per budget and difficulty; IoU from one
+  common map estimator; a probability-of-feasibility BO baseline over the whole set and an uncertainty-based rule on
+  the same candidates; a feature ablation for the tight-spec gain; the remaining test runs; the gain on newly
+  simulated designs.
   \item \uline{Run the loop end to end.} Build the compiler for circuits the LLM draws, connect the trained explorer,
   and compare the LLM with stronger topology rankings than device count, including new topologies with a phase-margin target.
   \item \uline{Extensions, not yet done but planned as the simulation budget allows:} feasible-region mapping on larger
   grids, the proposal's central question, with rewards that let the explorer judge a specification's difficulty and
-  stop on infeasible ones; transfer to GF\,180\,nm; continuous sizing, with candidates drawn fresh and simulated
-  instead of looked up in stored sets (the environment already supports this); a local LLM; user constraints; TSMC 65\,nm.
+  stop on infeasible ones; transfer to GF\,180\,nm; continuous sizing, with candidates simulated fresh instead of
+  looked up (already supported); a local LLM; user constraints; TSMC 65\,nm.
 \end{itemize}
 \newpage
 
@@ -330,18 +334,23 @@ Appendix~\ref{app:status} compares this status with the proposal's milestone goa
 \end{itemize}
 
 \section{Status against the proposal}\label{app:status}
+Milestone 1 was spent on revising the workflow and building the RL environment and its harness, including the
+optional LLM designer that the revised loop relies on. The proposal's simulation-heavy objectives (mapping, transfer,
+the mask saving) could not be completed in the time available and move to the final report.
+
 {\small\noindent
 \begin{tabularx}{\linewidth}{@{}L{0.28\linewidth}L{0.07\linewidth}Y@{}}
 \toprule
 Milestone goal (proposal) & Status & Where it stands \\
 \midrule
 Ground truth for three topologies & expanded & 22 circuits with finite-set ground truth: exhaustive grids and fully evaluated random pools (Section~\ref{sec:rl}) \\ \rowrule
-Reparameterized actions, design mask & dropped & Biasing is simulated and predicted, not masked by hand \\ \rowrule
-Five baselines at equal budget & done & All five in one harness (Table~\ref{tab:rl}) \\ \rowrule
+Reparameterized actions, design mask & dropped & The mask needed DC simulations that would count against the budget; bias is now a simulated outcome the explorer predicts. The 35\% saving has not been re-measured \\ \rowrule
+Five baselines at equal budget & done & All five in one harness (Table~\ref{tab:rl}); scored by first hit, which favours finding methods \\ \rowrule
+Metrics: IoU, fraction found, hypervolume & done & IoU in Table~\ref{tab:rl}; fraction found and hypervolume in Appendix~\ref{app:setup} \\ \rowrule
 First PPO policy on one topology & changed & DQN, PPO and three more learners on one shared environment; PPO ahead of greedy \\ \rowrule
 Learned feasible-region mapping & open & Small-set IoU and one exploratory run; the proposal's central question is not yet answered \\ \rowrule
-Early cross-process transfer & moved & To the final report (GF\,180\,nm design sets not built yet) \\ \rowrule
-Graph track (optional) & dropped & Built and removed: little gain over counting devices or a per-circuit GP\phantomsection\label{sec:gnn} \\
+Early cross-process transfer & moved & Not yet done: GF\,180\,nm design sets not built; planned for the final report \\ \rowrule
+Graph track (optional) & dropped & Built and removed: 2.3 against 2.5 quick screens for device count; a GP on 32 of a circuit's own simulations predicted it better\phantomsection\label{sec:gnn} \\
 \bottomrule
 \end{tabularx}
 
@@ -366,6 +375,33 @@ included; failed simulations count and no design is simulated twice. PPO against
 training circuits $-1.00$, held-out circuits $-1.27$, new topologies $-1.06$ (gain-boosted OTA $+0.26$ [$-0.07$,
 0.57], the other $-1.50$); specifications on design sets no training specification used $-0.91$ [$-1.23$, $-0.61$];
 ahead on 17 of 22 circuits; training seeds $-1.05$ and $-1.17$.
+
+\textbf{Test results by difficulty} (first-hit score; solved; fraction of the set's feasible designs found;
+hypervolume of the found designs' normalized margins):
+
+\begin{center}\footnotesize
+\begin{tabular}{lccccccc}
+\toprule
+& \multicolumn{3}{c}{First hit} & \multicolumn{2}{c}{Solved} & & \\
+\cmidrule(lr){2-4}\cmidrule(lr){5-6}
+Method & easy & medium & tight & medium & tight & Found & Hypervolume \\
+\midrule
+Greedy, spread & 1.1 & 4.4 & 21.4 & 96\% & 80\% & 0.80 & 1.04 \\
+Random pick, spread & 2.2 & 10.4 & 47.8 & 79\% & 33\% & 0.33 & 0.85 \\
+DQN, spread & 1.1 & 4.4 & 20.5 & 96\% & 81\% & 0.79 & 1.04 \\
+PPO, spread & 1.1 & 3.9 & 18.7 & 97\% & 84\% & 0.83 & 1.06 \\
+PPO, annealed & 1.1 & 3.8 & 18.9 & 97\% & 84\% & 0.83 & -- \\
+GP level-set & 3.3 & 12.7 & 36.0 & 83\% & 58\% & 0.59 & 0.87 \\
+NSGA-II & 2.7 & 10.4 & 37.9 & 81\% & 51\% & 0.51 & 0.91 \\
+MAP-Elites & 3.5 & 13.1 & 39.2 & 75\% & 50\% & 0.47 & 0.87 \\
+Sobol & 1.9 & 11.5 & 51.2 & 78\% & 26\% & 0.29 & 0.81 \\
+Random & 2.2 & 12.1 & 51.0 & 77\% & 29\% & 0.29 & 0.81 \\
+\bottomrule
+\end{tabular}
+\end{center}
+Two thirds of easy runs hit among the starting designs, so easy specifications barely separate the methods. On runs
+both solve, PPO reaches its first hit 1.4 simulations sooner than greedy. The median run has 8, 25 and 56 picks after
+the starting designs at the 10, 25 and 50\% budgets.
 
 \textbf{Fairness and maps.} Every method on a task and seed starts from the same initial designs (common random
 numbers), receives the same simulator outputs including bias failures, and samples the same finite design set.
