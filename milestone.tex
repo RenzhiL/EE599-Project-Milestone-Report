@@ -89,10 +89,10 @@ Milestone 1 revises this workflow and sets up the RL environment for it. Dense r
 expensive to build: exact labels for one 5-knob circuit at one load already take 16,807 simulations, and the cost
 grows as $L^k$ for $k$ knobs at $L$ levels. Transfer to GF\,180\,nm and validation of the bias-mask saving could not be
 completed in the available implementation and simulation time. The milestone therefore delivers three things:
-(1) the workflow is specified from proposal through screening, sizing, feedback and acceptance, and its components
-are checked one at a time (the compiler is a stand-in and the explorer is not yet in the loop). (2) a benchmark
+(1) a workflow specified from proposal through screening, sizing, feedback and acceptance, with its components
+checked one at a time (the compiler is a stand-in and the explorer is not yet in the loop); (2) a benchmark
 environment with a shared training, validation and test framework on 20 catalogue circuits and 2 new topologies whose small design sets (64--512 designs) we simulated in
-full, so achievability within each set is known. (3) a controlled comparison of learned explorers with fixed
+full, so achievability within each set is known; and (3) a controlled comparison of learned explorers with fixed
 acquisition rules at equal simulation budgets, scored on \uline{finding} a passing design, which such sets score
 exactly; mapping and transfer remain for the final report. A PPO explorer lowers the penalized first-hit score by
 about 12\% against the best fixed rule, mostly on the hardest specifications (preliminary: two training seeds); in a
@@ -420,7 +420,8 @@ simulated. Hypervolume: the volume dominated by the simulated feasible designs i
 margins ($(v-t)/n$ or $\log_{10}(v/t)/n$, sign reversed for upper-bound constraints such as maximum power, so larger
 is always better), with the reference point at zero margin, i.e.\ the
 specification thresholds; margins above the scale $n$ give values above 1. Each is averaged per task over the three
-budgets and ten seeds, then over tasks:
+budgets and ten seeds, then over tasks. A run that finds nothing scores 0 hypervolume, so the column partly reflects
+solve rate. Annealed PPO was scored with an older harness that did not record hypervolume:
 
 \begin{center}\footnotesize
 \begin{tabular}{lccccccc}
