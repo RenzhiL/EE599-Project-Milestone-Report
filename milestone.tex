@@ -71,20 +71,19 @@ or GP level-set estimation~\cite{gotovos}, which samples near the predicted pass
 maps the trade-offs of a 3,528-topology library by evolutionary search. Graph neural networks~\cite{cktgnn,wusavidis}
 predict performance from circuit structure. LLMs write and repair circuit code~\cite{analogcoder,analogcoderpro},
 propose designs inside Bayesian optimization~\cite{adollm}, check designs against rules~\cite{analogxpert}, size
-circuits through the simulator~\cite{eesizer} or work as agent teams~\cite{analogsage}. Across this work, automation
-sizes a given topology toward given targets or learns one circuit's pass/fail region from scratch; which topology can
-meet a specification at all, and when to give up on one, is left to experience.
+circuits through the simulator~\cite{eesizer} or work as agent teams~\cite{analogsage}. Most of this work sizes a given
+topology toward given targets or learns one circuit's pass/fail region from scratch. We study topology selection and
+when to stop searching, in one simulation-budgeted workflow.
 
 We propose a design loop that splits this work (Section~\ref{sec:loop}). An LLM acts as the designer: it proposes
-topologies and decides whether to accept one, retry, or relax the specification when nothing can meet it, but never
+topologies and decides whether to accept one, retry, or relax the specification when the search finds no passing design, but never
 gives a size. An RL explorer, trained once across many circuits, then chooses which sizings of a proposed topology to
 simulate, first to find a design that meets the specification and ultimately to map where it can be met, in as few
 simulations as possible. Like MetaBO, it picks which offered design to simulate next rather than outputting sizes,
 building on a GP model of the feasible region as in level-set estimation, with one policy for all circuits. Because
 the process design kits (PDKs) that describe a manufacturing process are often confidential, a circuit compiler sits
 between the two, meant to keep the process kit from both models (for now it is a stand-in). A topology is accepted only
-on a simulated design that meets every target. A graph model of our own ranked topologies barely better than device
-count (2.3 against 2.5 quick screens to a working circuit, leave-one-circuit-out on 15 circuits) and was dropped.
+on a simulated design that meets every target.
 
 Milestone 1 revises this workflow and sets up the RL environment for it. Dense reference sets for mapping were too
 expensive to build: exact labels for one 5-knob circuit at one load already take 16,807 simulations, and the cost
@@ -141,8 +140,7 @@ candidate designs per knob, drawn by a candidate setting, and the agent picks on
 the budget is spent. To score candidates, Gaussian processes (GPs) fitted on the designs simulated so far, one per
 target and one for whether the design biases, give each a chance of meeting the specification,
 $P(\text{bias})\prod_i P(\text{target } i \text{ met})$, treating targets as independent. The agent sees 16 features
-per candidate (that chance, worst predicted margin, its uncertainty, distances) and 9 per episode (budget
-left, designs found, highest chance).
+per candidate (that chance, worst predicted margin, its uncertainty, distances) and 9 per episode.
 
 The \uline{reward} is 1 for the first design that meets the specification and 0.25 for each later one (discount 0.99
 for DQN, 0.98 for PPO). We reward finding because the loop accepts a topology only on a found design; the smaller
@@ -209,7 +207,7 @@ Sobol & 29.8 [22.1, 38.6] & 69\% & 0.29 [0.24, 0.35] & 22.3 [19.6, 25.1] & 66\% 
 Random & 27.4 [20.0, 34.7] & 72\% & 0.31 [0.26, 0.36] & 22.6 [19.9, 25.2] & 66\% & 0.25 [0.23, 0.27] \\
 \bottomrule
 \end{tabular}
-\caption{Explorers on achievable specs, 95\% intervals over tasks. IoU is comparable within each group, which shares a map estimator; differences across groups also reflect the estimators. First hit: penalized first-hit score; spread, Sobol: candidate settings (Section~\ref{sec:loop}); annealed: see below. Per difficulty: Appendix~\ref{app:setup}. --: not yet run on test\protect\footnotemark[2].}\label{tab:rl}\vspace{-10pt}
+\caption{Explorers on achievable specs, 95\% intervals over tasks. Environment methods share a map estimator; each baseline uses its own. IoU differences between methods with different estimators reflect both sampling and map estimation. First hit: penalized first-hit score; spread, Sobol, annealed: candidate settings (Sections~\ref{sec:loop}, \ref{sec:rl}). Per difficulty: Appendix~\ref{app:setup}. --: not yet run on test\protect\footnotemark[2].}\label{tab:rl}\vspace{-10pt}
 \end{table}
 \footnotetext[2]{Trained shortly before submission; test runs as time allowed: two training seeds for PPO, one for annealed PPO.}
 \vspace{-3pt}
@@ -271,14 +269,15 @@ Claude Sonnet 5 & 78\% & 1 & 0.87$\times$ & 4 / 0 & 84\% & 1 & 0.88$\times$ & 5 
 rules abandoned, lost none and used about 12\% fewer simulations; Haiku 4.5 gained 9 and lost 5; Sonnet's hand analysis seems to try a working circuit early. The comparison is encouraging rather than conclusive: the samples share 12 specifications and each has one cached
 generation, so we report counts, not significance; and device count is a weak ordering, where a fair rule would rank
 circuits by the distance of their catalogue metrics to the specification. With the two-stage Miller OTA removed from the catalogue (a demonstration, stand-in compiler), Sonnet drew its
-own two-stage circuits and met two of the three specifications only that OTA meets.
+own two-stage circuits and met two of three specifications only that OTA meets.
 
 % ==================================================================
 \section{Plan to the final report}\label{sec:goals}
 \begin{itemize}
-    \item Move the evaluation from finding to mapping. Still to decide, within the simulation budget: which design sets (more knobs and a
-  lower feasible share than \texttt{m1}, so greedy has headroom), which reward (the proposal's uncertainty reduction or
-  IoU gain), which baselines, and one shared map estimator to score them all.
+    \item Move the evaluation from finding to mapping: compare PPO, greedy and GP level-set, scored with one
+  shared map estimator, on a few affordable fully simulated reference sets spanning different feasible-region structures
+  and difficulties, reporting IoU against simulation count. Set sizes and the reward (uncertainty reduction or
+  IoU gain) depend on resources.
   \item Strengthen the finding result with more training seeds and further controls.
   \item Complete the compiler and connect the trained explorer to the LLM designer.
   \item Other pending items: transfer to GF\,180\,nm, re-measuring the bias-mask saving, continuous sizing, stopping on infeasible
@@ -418,7 +417,8 @@ ahead on 17 of 22 circuits; training seeds $-1.05$ and $-1.17$.
 \textbf{Test results by difficulty.} First-hit score and solved share by difficulty; \emph{Found} and
 \emph{Hypervolume} pool all achievable specifications. Found: the share of the set's feasible designs among those
 simulated. Hypervolume: the volume dominated by the simulated feasible designs in the space of normalized target
-margins ($(v-t)/n$ or $\log_{10}(v/t)/n$, larger is better), with the reference point at zero margin, i.e.\ the
+margins ($(v-t)/n$ or $\log_{10}(v/t)/n$, sign reversed for upper-bound constraints such as maximum power, so larger
+is always better), with the reference point at zero margin, i.e.\ the
 specification thresholds; margins above the scale $n$ give values above 1. Each is averaged per task over the three
 budgets and ten seeds, then over tasks:
 
@@ -448,7 +448,8 @@ the starting designs at the 10, 25 and 50\% budgets.
 
 \textbf{Fairness and maps.} Every method on a task and seed starts from the same initial designs (common random
 numbers), receives the same simulator outputs including bias failures, and samples the same finite design set.
-Margins are normalized per constraint, $(v - t)/n$ or $\log_{10}(v/t)/n$ with a fixed scale $n$ per metric; bias
+Margins are normalized per constraint, $(v - t)/n$ or $\log_{10}(v/t)/n$ with a fixed scale $n$ per metric and the sign
+reversed for upper-bound constraints; bias
 checks enter GP level-set as constraints. IoU is computed on achievable specifications only (non-empty feasible sets),
 from each method's own map. Infeasibility AUROC uses each method's final chance that any design meets the
 specification, at the task's largest budget, with achievable specifications as the positive class.
