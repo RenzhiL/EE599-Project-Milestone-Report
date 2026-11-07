@@ -216,9 +216,8 @@ Random & 27.4 [20.0, 34.7] & 72\% & 0.31 [0.26, 0.36] & 22.6 [19.9, 25.2] & 66\%
 \end{tabular}
 \caption{Explorers: means over achievable specs, three budgets and ten seeds; 95\% intervals over tasks. Learned rows average their training seeds (on test, two for PPO, one for annealed PPO); intervals resample tasks only, so they do not include training-seed variability. Environment methods share a map estimator; each baseline uses its own. IoU differences between methods with different estimators reflect both sampling and map estimation. Spread, Sobol, annealed: candidate settings (Sections~\ref{sec:loop}, \ref{sec:rl}). Per difficulty: Appendix~\ref{app:setup}. --: not yet run on test.}\label{tab:rl}\vspace{-10pt}
 \end{table}
-\vspace{-3pt}
 Most of the gain comes from the environment's acquisition rule. Picking the offered candidate with the highest
-GP chance (greedy) has a penalized first-hit score 0.3--0.6 times that of the strongest baseline, though the
+GP chance (greedy) has a penalized first-hit score 0.3--0.5 times that of the strongest baseline, though the
 baselines pursue goals that first hit does not reward. Random pick, given
 the very same candidates, does little better than random sampling, so the GP ranking, not the candidate generator, is
 what matters. Across the two groups, IoU compares whole pipelines and cannot isolate sampling quality: the environment's
@@ -234,8 +233,8 @@ every chance is near zero. PPO is in effect a learned correction to the probabil
 rule, as in MetaBO. DQN, which does not beat greedy overall, also gains slightly on tight specifications (20.5
 against 21.4), so whether PPO's gain comes from its uncertainty and distance features is untested. Held-out evidence is small: three circuits and two new topologies, one without a gain.
 
-DQN does not improve on greedy (level on test, behind on validation), possibly because its value estimates stay noisy
-under a sparse reward without tuning. Three further learners probe what PPO's gain depends on. GRPO, which replaces the
+DQN is level with greedy on test and behind on validation, possibly because its value estimates stay noisy under a
+sparse reward without tuning. Three further learners probe what PPO's gain depends on. GRPO, which replaces the
 value network with an average over a group of episodes, is level with PPO on validation. PPO with \uline{annealed}
 candidates, broad at first and then concentrated near the best designs, beats greedy given the same candidates on
 validation and ties standard PPO on test; stored grids cannot be refined below their spacing, so its real test is live
@@ -271,7 +270,7 @@ Claude Sonnet 5 & 78\% & 1 & 0.87$\times$ & 4 / 0 & 84\% & 1 & 0.88$\times$ & 5 
 \vspace{-3pt}
 ``Wrong n.f.'': achievable specifications given up as not found; ``Sims'': all simulations, quick screens plus searches, relative to the rules;
 ``Found / lost'': specifications met where the rules gave up, and the reverse. Sonnet 5 recovered 9 evaluation cases the
-rules abandoned, lost none and used about 12\% fewer simulations; Haiku 4.5 gained 9 and lost 5; Sonnet's hand analysis seems to try a working circuit early. The comparison is encouraging rather than conclusive: the samples share 12 specifications and each has one cached
+rules abandoned, lost none and used about 12\% fewer simulations; Haiku 4.5 gained 9 and lost 5. Sonnet's hand analysis seems to try a working circuit early. The comparison is encouraging rather than conclusive: the samples share 12 specifications and each has one cached
 generation, so we report counts, not significance; and device count is a weak ordering: a fair rule would rank
 circuits by catalogue-metric distance to the specification. In a demonstration without the two-stage Miller OTA
 (stand-in compiler), Sonnet drew its
@@ -298,25 +297,7 @@ own two-stage circuits and met two of three specifications only that OTA meets.
 
 \begin{thebibliography}{99}\small\setlength{\itemsep}{0pt}
 \bibitem{autockt} K.~Settaluri et al., ``AutoCkt: deep reinforcement learning of analog circuit designs,'' DATE, 2020.
-\bibitem{ppaas} S.~Kim et al., ``PPAAS: PVT and Pareto aware analog sizing via goal-conditioned reinforcement learning,'' arXiv:2507.17003
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        , 2025.
+\bibitem{ppaas} S.~Kim et al., ``PPAAS: PVT and Pareto aware analog sizing via goal-conditioned reinforcement learning,'' arXiv:2507.17003, 2025.
 \bibitem{gcnrl} H.~Wang et al., ``GCN-RL circuit designer: transferable transistor sizing with graph neural networks and reinforcement learning,'' DAC, 2020.
 \bibitem{metabo} M.~Volpp et al., ``Meta-learning acquisition functions for transfer learning in Bayesian optimization,'' ICLR, 2020.
 \bibitem{debernardinis} F.~De Bernardinis, M.~I.~Jordan, A.~Sangiovanni-Vincentelli, ``Support vector machines for analog circuit performance representation,'' DAC, 2003.
@@ -329,37 +310,11 @@ own two-stage circuits and met two of three specifications only that OTA meets.
 \bibitem{cktgnn} Z.~Dong et al., ``CktGNN: circuit graph neural network for electronic design automation,'' ICLR, 2023.
 \bibitem{wusavidis} Z.~Wu, I.~Savidis, ``Transfer of performance models across analog circuit topologies with graph neural networks,'' MLCAD, 2022.
 \bibitem{analogcoder} Y.~Lai et al., ``AnalogCoder: analog circuit design via training-free code generation,'' AAAI, 2025.
-\bibitem{analogcoderpro} Y.~Lai et al., ``AnalogCoder-Pro: unifying analog circuit generation and optimization via multi-modal LLMs,'' arXiv:2508.02518
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        , 2025.
+\bibitem{analogcoderpro} Y.~Lai et al., ``AnalogCoder-Pro: unifying analog circuit generation and optimization via multi-modal LLMs,'' arXiv:2508.02518, 2025.
 \bibitem{adollm} Y.~Yin et al., ``ADO-LLM: analog design Bayesian optimization with in-context learning of large language models,'' ICCAD, 2024.
-\bibitem{analogxpert} H.~Zhang et al., ``AnalogXpert: automating analog topology synthesis by incorporating circuit design expertise into large language models,'' arXiv:2412.19824
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        , 2024.
+\bibitem{analogxpert} H.~Zhang et al., ``AnalogXpert: automating analog topology synthesis by incorporating circuit design expertise into large language models,'' arXiv:2412.19824, 2024.
 \bibitem{eesizer} C.~Liu, D.~Chitnis, ``EEsizer: LLM-based AI agent for sizing of analog and mixed signal circuit,'' IEEE Trans.\ Circuits and Systems I, doi:10.1109/TCSI.2025.3646359; arXiv:2509.25510, 2025.
-\bibitem{analogsage} Z.~Wang et al., ``AnalogSAGE: self-evolving analog design multi-agents with stratified memory and grounded experience,'' arXiv:2512.22435
-        
-        
-        
-        , 2025.
+\bibitem{analogsage} Z.~Wang et al., ``AnalogSAGE: self-evolving analog design multi-agents with stratified memory and grounded experience,'' arXiv:2512.22435, 2025.
 \end{thebibliography}
 
 \appendix
@@ -394,7 +349,7 @@ Metrics: IoU, fraction found, hypervolume & done & IoU in Table~\ref{tab:rl}; fr
 First PPO policy on one topology & changed & DQN, PPO and three more learners on one shared environment; PPO ahead of greedy \\ \rowrule
 Learned feasible-region mapping & planned & Small-set IoU and one exploratory run so far; the main goal for the final report (Section~\ref{sec:goals}) \\ \rowrule
 Early cross-process transfer & moved & Not yet done: GF\,180\,nm design sets not built; planned (Section~\ref{sec:goals}) \\ \rowrule
-Graph track (optional) & dropped & Built and removed: 2.3 against 2.5 quick screens for device count; a GP on 32 of a circuit's own simulations predicted it better\phantomsection\label{sec:gnn} \\
+Graph track (optional) & dropped & Built and removed: it needed 2.3 quick screens to a working circuit against 2.5 for device count; a GP on 32 of a circuit's own simulations predicted it better\phantomsection\label{sec:gnn} \\
 \bottomrule
 \end{tabularx}
 
@@ -461,7 +416,7 @@ checks enter GP straddle as constraints. IoU is computed on achievable specifica
 from each method's own map. Infeasibility AUROC uses each method's final chance that any design meets the
 specification, at the task's largest budget, with achievable specifications as the positive class.
 
-\textbf{Setup.} Learned explorers: DQN 6.9k and PPO 3.0k parameters, 200k environment steps each.
+\textbf{Setup.} DQN and PPO: 6.9k and 3.0k parameters, 200k environment steps each.
 Simulator: ngspice 41 (pinned; stored results are checked against it, except the mapping check's sweep, made earlier with ngspice 42), SkyWater 130\,nm at the typical corner,
 27\,$^\circ$C. LLM designers: \texttt{claude-haiku-4-5-20251001} and \texttt{claude-sonnet-5}, provider-default
 sampling (Sonnet refuses a temperature setting, so both run at the default), at most 16,000 output tokens per reply;
@@ -474,9 +429,9 @@ kernel, hyperparameters refitted every 16 simulations; straddle acquisition $1.9
 \toprule
 Proposal & Now & Why \\
 \midrule
-Reward: uncertainty drop; metric IoU & Reward 1 for the first meeting design, 0.25 per later one; metric: simulations to the first; IoU beside it & The loop accepts a topology only on a found design; uncertainty-reduction and IoU-gain rewards become the main method for mapping in the final report \\ \rowrule
+Reward: uncertainty drop; metric IoU & Reward 1 for the first meeting design, 0.25 per later one; metric: penalized first-hit score; IoU beside it & The loop accepts a topology only on a found design; uncertainty-reduction and IoU-gain rewards become the main method for mapping in the final report \\ \rowrule
 Policy acts on design variables (reparameterized actions) & Policy picks among offered candidates, scored by 16 shared candidate features + 9 episode features & One action space for any circuit, knob count, spec and load \\ \rowrule
-Rule supervisor; LLM agent (opt.) & LLM \uline{designer}: proposes topologies, calls accept / retry / give up; rules are its baseline & Rejecting unachievable specs is worth learning \\ \rowrule
+Rule supervisor; LLM agent (opt.) & LLM \uline{designer}: proposes topologies, calls accept / retry / give up; rules are its baseline & When to stop searching is worth learning \\ \rowrule
 \bottomrule
 \end{tabularx}\par}
 
