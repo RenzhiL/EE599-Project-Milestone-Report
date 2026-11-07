@@ -80,7 +80,8 @@ specifications and size them with Bayesian optimization~\cite{analogcoderpro}, p
 optimization~\cite{adollm}, synthesize topologies by selecting and connecting subcircuits~\cite{analogxpert}, size
 circuits through the simulator~\cite{eesizer} or work as agent teams~\cite{analogsage}. Topology generation and sizing
 are well studied; we add a learned acquisition policy shared across circuits, compared in one
-budget-controlled environment, for finding and later mapping feasible regions.
+budget-controlled environment, for finding and later mapping feasible regions,
+and an LLM designer that chooses topologies and when to stop, judged against a rule baseline in the same workflow.
 
 We propose a design loop that splits this work (Section~\ref{sec:loop}). An LLM acts as the designer: it proposes
 topologies and decides whether to accept one, retry, or relax the specification when the search finds no passing design, but never
@@ -245,10 +246,10 @@ Without full test runs, these are only observations.
 
 Two results mark the limits of finding. In an exploratory mapping run (\texttt{diffpair\_rload}, 172 of 16,807
 designs feasible, on an older simulator version, ngspice 42), greedy and PPO both reach IoU 0.99 within 600
-simulations, PPO more slowly (0.56--0.60 against 0.67 at 200), while GP straddle reaches 0.17, comparable to the proposal pilot's GP baseline (0.37 after
-1,000); as in Table~\ref{tab:rl}, part of that gap may reflect the separate map estimators. PPO has not shown a mapping advantage on this circuit, which stays in the final benchmark. On infeasible specifications,
-learned methods show no consistent advantage over random pick in telling them from achievable ones (AUROC 0.77--0.96
-against 0.91, from the final chance that any design passes).
+simulations, PPO more slowly (0.56--0.60 against 0.67 at 200), while GP straddle reaches 0.17, near the proposal pilot's GP baseline (0.37 after
+1,000); part of that gap may reflect the separate map estimators. PPO has not shown a mapping advantage on this circuit; greedy maps it almost perfectly, so it
+stays in the final benchmark as the easy reference among sets of differing difficulty. Learned methods show no consistent advantage over random pick in
+telling infeasible specifications apart (AUROC 0.77--0.96 against 0.91).
 
 \subsection{LLM designer: a component check (deliverable 1)}\label{sec:llm}
 The rule baseline tries catalogue circuits from the fewest devices up. On stored 512-design pools and the 258
@@ -273,8 +274,9 @@ Claude Sonnet 5 & 78\% & 1 & 0.87$\times$ & 4 / 0 & 84\% & 1 & 0.88$\times$ & 5 
 ``Wrong n.f.'': achievable specifications given up as not found; ``Sims'': all simulations, quick screens plus searches, relative to the rules;
 ``Found / lost'': specifications met where the rules gave up, and the reverse. Sonnet 5 recovered 9 evaluation cases the
 rules abandoned, lost none and used about 12\% fewer simulations; Haiku 4.5 gained 9 and lost 5; Sonnet's hand analysis seems to try a working circuit early. The comparison is encouraging rather than conclusive: the samples share 12 specifications and each has one cached
-generation, so we report counts, not significance; and device count is a weak ordering, where a fair rule would rank
-circuits by the distance of their catalogue metrics to the specification. With the two-stage Miller OTA removed from the catalogue (a demonstration, stand-in compiler), Sonnet drew its
+generation, so we report counts, not significance; and device count is a weak ordering: a fair rule would rank
+circuits by catalogue-metric distance to the specification. In a demonstration without the two-stage Miller OTA
+(stand-in compiler), Sonnet drew its
 own two-stage circuits and met two of three specifications only that OTA meets.
 
 % ==================================================================
@@ -284,9 +286,10 @@ own two-stage circuits and met two of three specifications only that OTA meets.
   shared map estimator, on a few affordable fully simulated reference sets spanning different feasible-region structures
   and difficulties, reporting IoU against simulation count. Set sizes and the reward (uncertainty reduction or
   IoU gain) depend on resources.
-  \item Strengthen the finding result with more training seeds and further controls.
-  \item Complete the compiler and connect the trained explorer to the LLM designer, with phase margin among the
-  final experiments' acceptance targets.
+  \item Strengthen the finding result with more training seeds and baselines built for finding, such as active
+  search or probability of feasibility over the whole set (greedy plays this role on the offered candidates only).
+  \item Complete the compiler and connect the trained explorer to the LLM designer, with phase margin as an
+  acceptance target.
   \item Other pending items: transfer to GF\,180\,nm, re-measuring the bias-mask saving, continuous sizing, stopping on infeasible
   specifications, a local LLM, user constraints and TSMC 65\,nm.
 
