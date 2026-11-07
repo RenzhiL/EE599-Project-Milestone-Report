@@ -198,8 +198,9 @@ Sobol & 29.8 [22.1, 38.6] & 69\% & 0.29 [0.24, 0.35] & 22.3 [19.6, 25.1] & 66\% 
 Random & 27.4 [20.0, 34.7] & 72\% & 0.31 [0.26, 0.36] & 22.6 [19.9, 25.2] & 66\% & 0.25 [0.23, 0.27] \\
 \bottomrule
 \end{tabular}
-\caption{Explorers on achievable specs, 95\% intervals over tasks. Spread, Sobol: candidate settings (footnote~1); annealed: see below. --: not yet run on test.}\label{tab:rl}\vspace{-10pt}
+\caption{Explorers on achievable specs, 95\% intervals over tasks. Spread, Sobol: candidate settings (footnote~1); annealed: see below. --: not yet run on test\protect\footnotemark[2].}\label{tab:rl}\vspace{-10pt}
 \end{table}
+\footnotetext[2]{These three models finished training shortly before submission; their test runs could not finish in time.}
 \vspace{-3pt}
 \begin{itemize}
   \item \textbf{The environment does most of the work.} Choosing among offered candidates by the GP's chance, with or
@@ -282,13 +283,14 @@ Graph track (optional) & dropped & Built and removed: little gain over counting 
 
 \textbf{Plan to the final report.}
 \begin{itemize}
-  \item \textbf{Required, RL:} PPO is carried forward ($\le$8 tuning trials, chosen on validation; annealed candidates scored on test): its margin over greedy on tight
-  stored specs (paired 95\% interval below zero) must hold on fresh designs and on mapping. Mapping as the headline:
-  IoU on large grids and its sensitivity to grid resolution; the reward ablation (finding, uncertainty drop, find
-  then map) for an explorer that judges a spec's difficulty and sets its budget; GF\,180\,nm transfer vs a warm-started GP.
-  \item \textbf{Required, design loop:} the compiler for generic circuits; the full loop on live simulation with the
-  trained explorer as the search, judged by wrong ``not found'' calls and simulations against the rule baseline on
-  held-out specs; new topologies with a phase-margin target.
+  \item \textbf{Required, RL:} finish the test runs of the three new learners and carry the best PPO forward ($\le$8
+  tuning trials, chosen on validation). Its margin over greedy on tight specs must hold on newly simulated designs,
+  not only stored ones, and on mapping. Mapping becomes the headline: IoU on large grids and how it depends on grid
+  resolution, and a reward ablation (finding, uncertainty drop, find then map) toward an explorer that judges a
+  spec's difficulty and sets its budget. Transfer to GF\,180\,nm, against a GP warm-started from SkyWater data.
+  \item \textbf{Required, design loop:} the compiler for circuits the LLM draws; the full loop on live simulation with
+  the trained explorer as the search, judged against the rule baseline on held-out specs by wrong ``not found'' calls
+  and simulations; new topologies with a phase-margin target.
   \item \textbf{Optional:} a local LLM for topology suggestion only (341 public netlists); user constraints; TSMC 65\,nm.
 \end{itemize}
 \newpage
